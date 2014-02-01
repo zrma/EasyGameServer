@@ -18,8 +18,6 @@
 *.suo
 *.user
 
-*.db3
-
 # Temp Recording Text File
 recordNote.txt
 
