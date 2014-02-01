@@ -11,3 +11,37 @@
 *.lai
 *.la
 *.a
+
+*.ipch
+*.sdf
+*.opensdf
+*.suo
+*.user
+
+*.db3
+
+# Temp Recording Text File
+recordNote.txt
+
+_ReSharper.*/
+*.cd
+*.tlog
+*.log
+*.sass-cache
+
+*.pidb
+*.userprefs
+*.dbmdl
+
+TestResult.xml
+*.VisualState.xml
+Version.cs
+Version.h
+Version.cpp
+
+# generated files
+ipch/
+Debug/
+Release/
+bin/
+obj/

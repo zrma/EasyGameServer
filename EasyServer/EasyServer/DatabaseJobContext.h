@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 
 #include <WinSock2.h>
 #include "Config.h"
@@ -6,7 +6,7 @@
 #include "ObjectPool.h"
 
 
-/// ¸ğµç DB°ü·Ã ÀÛ¾÷Àº ¾Æ·¡ÀÇ Ãß»ó Å¬·¡½º¸¦ »ó¼Ó¹Ş¾Æ »ç¿ëÇØ¾ß ÇÔ
+/// ëª¨ë“  DBê´€ë ¨ ì‘ì—…ì€ ì•„ë˜ì˜ ì¶”ìƒ í´ë˜ìŠ¤ë¥¼ ìƒì†ë°›ì•„ ì‚¬ìš©í•´ì•¼ í•¨
 struct DatabaseJobContext
 {
 	DatabaseJobContext() : mSuccess(false)
@@ -26,7 +26,7 @@ struct DatabaseJobContext
 } ;
 
 
-/// player load ÀÛ¾÷
+/// player load ì‘ì—…
 struct LoadPlayerDataContext : public DatabaseJobContext, public ObjectPool<LoadPlayerDataContext>
 {
 	LoadPlayerDataContext(SOCKET socketKey, int playerId) : DatabaseJobContext(socketKey)
@@ -49,7 +49,7 @@ struct LoadPlayerDataContext : public DatabaseJobContext, public ObjectPool<Load
 } ;
 
 
-/// Player »ı¼º ÀÛ¾÷
+/// Player ìƒì„± ì‘ì—…
 struct CreatePlayerDataContext : public DatabaseJobContext, public ObjectPool<CreatePlayerDataContext>
 {
 	CreatePlayerDataContext() 
@@ -72,7 +72,7 @@ struct CreatePlayerDataContext : public DatabaseJobContext, public ObjectPool<Cr
 
 
 
-/// Player »èÁ¦ ÀÛ¾÷
+/// Player ì‚­ì œ ì‘ì—…
 struct DeletePlayerDataContext : public DatabaseJobContext, public ObjectPool<DeletePlayerDataContext>
 {
 	DeletePlayerDataContext(int playerId) : mPlayerId(playerId)
@@ -84,7 +84,7 @@ struct DeletePlayerDataContext : public DatabaseJobContext, public ObjectPool<De
 
 } ;
 
-/// Player ¾÷µ¥ÀÌÆ® ÀÛ¾÷
+/// Player ì—…ë°ì´íŠ¸ ì‘ì—…
 struct UpdatePlayerDataContext : public DatabaseJobContext, public ObjectPool<UpdatePlayerDataContext>
 {
 	UpdatePlayerDataContext(SOCKET socketKey, int playerId) : DatabaseJobContext(socketKey)
