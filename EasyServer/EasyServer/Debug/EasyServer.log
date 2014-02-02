@@ -1,0 +1,30 @@
+﻿빌드 시작: 2015-03-24 오전 7:50:44
+     1>2 노드의 "D:\Developer\Github\EasyGameServer\EasyServer\EasyServer\EasyServer.vcxproj" 프로젝트(Build 대상)입니다.
+     1>ClCompile:
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /ZI /nologo /W3 /WX- /sdl /Od /Oy- /D WIN32 /D _DEBUG /D _CONSOLE /D _UNICODE /D UNICODE /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Yu"stdafx.h" /Fp"Debug\EasyServer.pch" /Fo"Debug\\" /Fd"Debug\vc120.pdb" /Gd /TP /wd4996 /wd4703 /analyze- /errorReport:prompt ClientManager.cpp ClientSession.cpp DatabaseJobContext.cpp DatabaseJobManager.cpp EasyServer.cpp
+         ClientSession.cpp
+         코드를 생성하고 있습니다...
+         건너뛰고 있습니다... (관련된 변경 내용 없음)
+         EasyServer.cpp
+         DatabaseJobManager.cpp
+         DatabaseJobContext.cpp
+         ClientManager.cpp
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /ZI /nologo /W3 /WX- /sdl /Od /Oy- /D WIN32 /D _DEBUG /D _CONSOLE /D _UNICODE /D UNICODE /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Debug\\" /Fd"Debug\vc120.pdb" /Gd /TC /wd4996 /wd4703 /analyze- /errorReport:prompt sqlite3.c
+         sqlite3.c
+       Link:
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"D:\Developer\Github\EasyGameServer\EasyServer\Debug\EasyServer.exe" /INCREMENTAL /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib DbgHelp.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"D:\Developer\Github\EasyGameServer\EasyServer\Debug\EasyServer.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"D:\Developer\Github\EasyGameServer\EasyServer\Debug\EasyServer.lib" /MACHINE:X86 Debug\CircularBuffer.obj
+         Debug\ClientManager.obj
+         Debug\ClientSession.obj
+         Debug\DatabaseJobContext.obj
+         Debug\DatabaseJobManager.obj
+         Debug\DbHelper.obj
+         Debug\EasyServer.obj
+         Debug\Exception.obj
+         Debug\sqlite3.obj
+         Debug\stdafx.obj
+         EasyServer.vcxproj -> D:\Developer\Github\EasyGameServer\EasyServer\Debug\EasyServer.exe
+     1>"D:\Developer\Github\EasyGameServer\EasyServer\EasyServer\EasyServer.vcxproj" 프로젝트를 빌드했습니다(Build 대상).
+
+빌드했습니다.
+
+경과 시간: 00:00:02.79
