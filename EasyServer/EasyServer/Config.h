@@ -1,10 +1,10 @@
-#pragma once
+ï»¿#pragma once
 
 
-/// DB ¿¬°á ½ºÆ®¸µ 
+/// DB ì—°ê²° ìŠ¤íŠ¸ë§ 
 #define DB_CONN_STR "..\\Database\\user_example.db3"
 #define LISTEN_PORT	9001
 
 
-/// 1ºĞ¸¶´Ù ÇÃ·¹ÀÌ¾î »óÅÂ ÀúÀå
+/// 1ë¶„ë§ˆë‹¤ í”Œë ˆì´ì–´ ìƒíƒœ ì €ì¥
 #define PLAYER_DB_UPDATE_CYCLE	60

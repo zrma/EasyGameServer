@@ -5,7 +5,6 @@
 #include "..\..\PacketType.h"
 #include "ObjectPool.h"
 
-
 /// 모든 DB관련 작업은 아래의 추상 클래스를 상속받아 사용해야 함
 struct DatabaseJobContext
 {

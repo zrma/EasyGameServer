@@ -28,7 +28,7 @@ SOCKET g_Socket = NULL ;
 CircularBuffer g_SendBuffer(BUFSIZE) ;
 CircularBuffer g_RecvBuffer(BUFSIZE) ;
 
-char* szServer = "localhost" ;
+char* szServer = "192.168.219.5" ;
 int nPort = 9001 ;
 
 bool g_LoginComplete = false ;
@@ -85,7 +85,7 @@ void ProcessPacket(HWND hWnd)
 		if ( false == g_RecvBuffer.Peek((char*)&header, sizeof(PacketHeader)) )
 			break ;
 
-		if (header.mSize > g_RecvBuffer.GetCurrentSize() )
+		if (header.mSize > static_cast<short> (g_RecvBuffer.GetCurrentSize()) )
 			break ;
 
 		switch ( header.mType )
@@ -383,7 +383,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 					int opt = 1 ;
 					::setsockopt(g_Socket, IPPROTO_TCP, TCP_NODELAY, (const char*)&opt, sizeof(int)) ;
 
-					srand( time(NULL) ) ;
+					srand( static_cast<unsigned int> (time(NULL)) ) ;
 					/// 대략 1000~1100 의 ID로 로그인 해보자 
 					LoginRequest sendData ;
 					sendData.mPlayerId = 1000 + rand() % 101 ;
