@@ -394,7 +394,7 @@ unsigned int WINAPI ClientHandlingThread( LPVOID lpParam )
 
 	while ( true )
 	{
-		/// accept or IO/Timer completion   대기
+		/// accept or IO/Timer completion 대기
 		DWORD result = WaitForSingleObjectEx(hEvent, INFINITE, TRUE) ;
 		// 이벤트 신호 들어올 때가지 무한 대기
 
@@ -411,7 +411,7 @@ unsigned int WINAPI ClientHandlingThread( LPVOID lpParam )
 			SOCKADDR_IN clientaddr ;
 			int addrlen = sizeof(clientaddr) ;
 			getpeername(g_AcceptedSocket, (SOCKADDR*)&clientaddr, &addrlen) ;
-
+			// 소켓으로부터 클라이언트 네임(sockaddr 주소값)을 얻어옴
 
 			// 클라 접속 처리
 			if ( false == client->OnConnect(&clientaddr) )
@@ -419,12 +419,16 @@ unsigned int WINAPI ClientHandlingThread( LPVOID lpParam )
 				client->Disconnect() ;
 			}
 		
-			continue ; ///< 다시 대기로
+			continue ; // 다시 대기로
 		}
 
 		// APC에 있던 completion이 아니라면 에러다
 		if ( result != WAIT_IO_COMPLETION )
 			return -1 ;
+		//////////////////////////////////////////////////////////////////////////
+		// 이벤트 신호를 받아서 WaitForSingleObjectEx 하단으로 진입했는데
+		// result 반환 값이 WAIT_IO_COMPLETION 가 아니라면 에러였음
+		//////////////////////////////////////////////////////////////////////////
 	}
 
 	CloseHandle( hTimer ) ;
