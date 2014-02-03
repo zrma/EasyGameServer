@@ -169,10 +169,60 @@ int _tmain(int argc, _TCHAR* argv[])
 	/// bind
 	SOCKADDR_IN serveraddr ;
 	ZeroMemory(&serveraddr, sizeof(serveraddr)) ;
+	
 	serveraddr.sin_family = AF_INET ;
+	// IPv4
+
 	serveraddr.sin_port = htons(LISTEN_PORT) ;
+	// htons		= Hostshort TO uNsigned Short
+	// LISTEN_PORT	= 9001
+
 	serveraddr.sin_addr.s_addr = htonl(INADDR_ANY) ;
+	// INADDR_ANY를 사용하면 0.0.0.0 으로 설정하는 것과 같음
+	//
+	// 클라이언트에서 서버 주소를 어떤 것으로 접속을 시도하든 해당 서버의 지정 된 포트로 연결 시도하는
+	// 접속에 대해서 모두 연결 허용하게 된다.
+	//
+	// SO_REUSEADDR 옵션을 사용하고, 동시에 두개의 서버를 실행하면
+	// 오류가 나지 않고 한 TCP서버만 클라이언트 접속을 처리하게 되는데,
+	// 
+	// 여기에서 한 서버 프로그램은 INADDR_ANY 옵션을 주지않고 특정 IP주소로 바인딩 한 후
+	// 두개의 서버를 실행하면 특정 주소로 바인딩 시킨 서버가 INADDR_ANY보다 우선권을 갖는다.
+
+
+	//////////////////////////////////////////////////////////////////////////
+	// 주소 정보를 담을 때 필요한 정보 3가지
+	// 주소체계정보, IP주소, PORT번호
+	//
+	// 위의 3가지 정보를 저장해서 전달하기 위한 구조체가 sockaddr_in
+	//
+	//	struct sockaddr_in
+	//	{
+	//		sa_family_t		sin_family;		// 주소체계(AF_INET, AF_INET6, AF_LOCAL)
+	//		uint16_t		sin_port;		// 16비트 TCP/UDP PORT 번호
+	//		struct in_addr	sin_addr;		// 32비트 IP주소
+	//		char			sin_zero[8];	// 사용되지 않음
+	//	}
+	//
+	// 마지막 sin_zero는 구조체의 크기를 맞추기 위함
+	//
+	// 기본적으로 sockaddr_in 으로 정보를 얻어 sockaddr에 정보를 전달하는 구조로 되어있는데
+	//
+	// sockaddr의 구조를 살펴보면
+	//
+	//	struct sockaddr
+	//	{
+	//		sa_family_t		sin_family;		// 주소체계
+	//		char			sa_data[14];	// 주소정보
+	//	};
+	//
+	// 위와 같은데 전달 했을 때 정확한 결과를 얻기 위해서
+	// 두 구조체의 크기를 같게 하기 위해 sin_zero를 추가 한 것
+	//////////////////////////////////////////////////////////////////////////
+
 	int ret = bind(listenSocket, (SOCKADDR*)&serveraddr, sizeof(serveraddr)) ;
+	// socket() 함수로 소켓을 생성 이후에 소켓에 주소 값을 설정하는 함수가 bind()
+
 	if (ret == SOCKET_ERROR)
 		return -1 ;
 	
@@ -183,6 +233,22 @@ int _tmain(int argc, _TCHAR* argv[])
 
 	/// auto-reset event
 	HANDLE hEvent = CreateEvent(NULL, FALSE, FALSE, NULL) ;
+	//////////////////////////////////////////////////////////////////////////
+	//	HANDLE CreateEvent( 
+	//		LPSECURITY_ATTRIBUTES lpEventAttributes,	// 일반적으로 NULL, 보안 관련
+	//		BOOL bManualReset,							// 수동(TRUE), 자동(FALSE)
+	//		BOOL bInitialState,							// 생성시 이벤트가 적용된 상태인가
+	//		LPTSTR lpName);								// 이벤트네임
+	//
+	// 이벤트 - 스레드를 사용하면서 스레드를 죽이거나(Kill) 프로세스간 통신, 무언가 알릴 때 등 다양하게 사용
+	// 
+	// 두번째 파라미터를 수동으로 둘 경우 SetEvent()로 이벤트를 발생시킬 경우,
+	// 수동으면 이벤트 발생후 ResetEvent()를 반드시 해주어야 이벤트가 다시 발생되고
+	// 자동일 경우는 ResetEvent()를 안 해도 됨. 용도에 맞게 사용
+	//
+	// 위의 경우는 자동 리셋으로 설정되어 있음
+	//////////////////////////////////////////////////////////////////////////
+
 	if (hEvent == NULL)
 		return -1 ;
 
