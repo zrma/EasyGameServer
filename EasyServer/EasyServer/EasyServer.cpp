@@ -228,6 +228,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	
 	/// listen
 	ret = listen(listenSocket, SOMAXCONN) ;
+	// SOMAXCONN = BackLog size : 연결 요청 대기 큐의 사이즈
 	if (ret == SOCKET_ERROR)
 		return -1 ;
 
@@ -255,6 +256,12 @@ int _tmain(int argc, _TCHAR* argv[])
 	/// I/O Thread
 	DWORD dwThreadId ;
 	HANDLE hThread = (HANDLE)_beginthreadex (NULL, 0, ClientHandlingThread, hEvent, 0, (unsigned int*)&dwThreadId) ;
+	//////////////////////////////////////////////////////////////////////////
+	// 클라이언트 핸들링 스레드 쪽에 이벤트를 전달하기 위해서 hEvent를 전달 인자로 대입
+	//
+	// http://blog.naver.com/hello20?Redirect=Log&logNo=150038699567
+	//////////////////////////////////////////////////////////////////////////
+
     if (hThread == NULL)
 		return -1 ;
 
@@ -268,6 +275,8 @@ int _tmain(int argc, _TCHAR* argv[])
 	while ( true )
 	{
 		g_AcceptedSocket = accept(listenSocket, NULL, NULL) ;
+		// accept() = 연결 요청 대기 큐에서 대기 중인 클라이언트의 연결 요청을 수락하는 기능의 함수
+
 		if ( g_AcceptedSocket == INVALID_SOCKET )
 		{
 			printf("accept: invalid socket\n") ;
@@ -275,9 +284,12 @@ int _tmain(int argc, _TCHAR* argv[])
 		}
 
 		/// accept event fire!
+		//////////////////////////////////////////////////////////////////////////
+		// 위에서 생성한 - 스레드 내부에 신호를 전달시키기 위한 hEvent 발생!
+		//////////////////////////////////////////////////////////////////////////
 		if ( !SetEvent(hEvent) )
 		{
-			printf("SetEvent error: %d\n",GetLastError()) ;
+			printf("SetEvent error: %d\n", GetLastError()) ;
 			break ;
 		}
 	}
@@ -293,9 +305,14 @@ int _tmain(int argc, _TCHAR* argv[])
 	//////////////////////////////////////////////////////////////////////////
 
 	DbHelper::Finalize() ;
+	// sqlite3_close
 
-	delete GClientManager ;
-	delete GDatabaseJobManager ;
+	if ( GClientManager != nullptr )
+		delete GClientManager ;
+
+	if ( GDatabaseJobManager != nullptr )
+		delete GDatabaseJobManager ;
+
 	return 0 ;
 }
 
