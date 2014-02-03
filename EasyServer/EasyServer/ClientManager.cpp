@@ -43,22 +43,35 @@ ClientSession* ClientManager::CreateClient(SOCKET sock)
 	return client ;
 }
 
-
-
 void ClientManager::BroadcastPacket(ClientSession* from, PacketHeader* pkt)
 {
-	///FYI: C++ STL iterator 스타일의 루프
-	for (ClientList::const_iterator it=mClientList.begin() ; it!=mClientList.end() ; ++it)
+	/// FYI : C++ STL iterator 스타일의 루프
+	// 오버라이딩 된 ++을 이용해서 차례대로 순회
+	for ( ClientList::const_iterator it = mClientList.begin() ; it != mClientList.end() ; ++it )
 	{
 		ClientSession* client = it->second ;
+		// ClientList는 맵이므로 it(iterator)는 해당 pair의 포인터이다.
+		// 그러므로 it->second 는 밸류(클라이언트 세션)
 		
 		if ( from == client )
 			continue ;
+		// 보낸 이에게는 패스
 		
 		client->Send(pkt) ;
+		// ClientSession.cpp 참조
 	}
 }
 
+
+//////////////////////////////////////////////////////////////////////////
+// EasyServer.cpp의 클라이언트 핸들링 스레드에서 0.1초마다 콜백
+//
+// 0.1초마다 주기적으로 해야 할 일
+//
+// 1. 가비지 컬렉팅
+// 2. 클라이언트 세션 별 할 일 처리
+// 3. DB 작업 처리 된 것 각각 클라이언트에 맞게 적용
+//////////////////////////////////////////////////////////////////////////
 void ClientManager::OnPeriodWork()
 {
 	/// 접속이 끊긴 세션들 주기적으로 정리 (1초 정도 마다 해주자)

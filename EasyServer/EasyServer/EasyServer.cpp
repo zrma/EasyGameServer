@@ -170,7 +170,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	::setsockopt(listenSocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(int) ) ;
 	//////////////////////////////////////////////////////////////////////////
 	// 소켓의 세부 사항 조절 - getsockopt / setsockopt
-	// http://vinchi.tistory.com/246 참고
+	// http://vinchi.tistory.com/246 참조
 	//
 	// SOCKET	: 옵션 변경을 위한 소켓의 파일 디스크립터
 	// level	: 변경 할 소켓 옵션의 레벨
@@ -373,7 +373,7 @@ unsigned int WINAPI ClientHandlingThread( LPVOID lpParam )
 	//
 	// 그냥 Sleep을 할 경우 Wake-up 하는데 문제가 될 수 있으므로 Waitable Timer를 이용하는 것이 좋다.
 	//
-	// http://blog.naver.com/kjyong86/140151818181 참고
+	// http://blog.naver.com/kjyong86/140151818181 참조
 	//////////////////////////////////////////////////////////////////////////
 
 	if (hTimer == NULL)
