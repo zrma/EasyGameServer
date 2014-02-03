@@ -43,11 +43,26 @@
 
 //////////////////////////////////////////////////////////////////////////
 SOCKET g_AcceptedSocket = NULL ;
-// 전역 변수로 이번 타이밍에 접속 허가 처리를 할 소켓 관리
+// 전역 변수로 매 타이밍마다 접속 허가 처리를 할 소켓 관리
 //////////////////////////////////////////////////////////////////////////
 
 //////////////////////////////////////////////////////////////////////////
 __declspec(thread) int LThreadType = -1 ;
+//////////////////////////////////////////////////////////////////////////
+// TLS
+// Thread Local Storage, 스레드마다 자신의 저장 공간을 가진다.
+// 
+// 각각의 스레드는 고유한 스택을 갖기 때문에 스택 변수(지역 변수)는 스레드 별로 고유하다.
+// 각각의 스레드가 같은 함수를 실행한다고 해도 그 함수에서 정의된 지역변수는 실제로 
+// 서로 다른 메모리 공간에 위치한다.
+//
+// 그러나 정적 변수나 전역 변수의 경우에는 프로세스 내의 모든 스레드에 의해서 공유됩니다.
+//
+// TLS는 정적, 전역 변수를 각각의 스레드에게 독립적으로 만들어 주고 싶을 때 사용한다.
+// 분명히 같은 문맥(context)을 실행하고 있지만 실제로는 스레드 별로 다른 주소공간을 상대로 작업
+//
+// __declspec(thread) smgid_t call_smid;	// 이와 같이 선언
+//////////////////////////////////////////////////////////////////////////
 // 스레드 정체를 확인하기 위함
 // 
 // 메인 스레드인가?
@@ -77,6 +92,9 @@ int _tmain(int argc, _TCHAR* argv[])
 	/// Manager Init
 	GClientManager = new ClientManager() ;
 	GDatabaseJobManager = new DatabaseJobManager() ;
+	//////////////////////////////////////////////////////////////////////////
+	// 각 매니저들은 각 헤더파일들에 extern 으로 선언 되어 있음
+	// 여기서 new 해줌
 	//////////////////////////////////////////////////////////////////////////
 
 	//////////////////////////////////////////////////////////////////////////
@@ -239,7 +257,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	//		LPSECURITY_ATTRIBUTES lpEventAttributes,	// 일반적으로 NULL, 보안 관련
 	//		BOOL bManualReset,							// 수동(TRUE), 자동(FALSE)
 	//		BOOL bInitialState,							// 생성시 이벤트가 적용된 상태인가
-	//		LPTSTR lpName);								// 이벤트네임
+	//		LPTSTR lpName);								// 이벤트 네임
 	//
 	// 이벤트 - 스레드를 사용하면서 스레드를 죽이거나(Kill) 프로세스간 통신, 무언가 알릴 때 등 다양하게 사용
 	// 
@@ -251,7 +269,10 @@ int _tmain(int argc, _TCHAR* argv[])
 	//////////////////////////////////////////////////////////////////////////
 
 	if (hEvent == NULL)
+	{
+		WSACleanup() ;
 		return -1 ;
+	}
 
 	/// I/O Thread
 	DWORD dwThreadId ;
@@ -263,13 +284,22 @@ int _tmain(int argc, _TCHAR* argv[])
 	//////////////////////////////////////////////////////////////////////////
 
     if (hThread == NULL)
+	{
+		CloseHandle( hEvent ) ;
+		WSACleanup() ;
 		return -1 ;
+	}
 
 
 	/// DB Thread
 	HANDLE hDbThread = (HANDLE)_beginthreadex (NULL, 0, DatabaseHandlingThread, NULL, 0, (unsigned int*)&dwThreadId) ;
 	if (hDbThread == NULL)
+	{
+		CloseHandle( hThread ) ;
+		CloseHandle( hEvent ) ;
+		WSACleanup() ;
 		return -1 ;
+	}
 
 	/// accept loop
 	while ( true )
@@ -319,36 +349,69 @@ int _tmain(int argc, _TCHAR* argv[])
 unsigned int WINAPI ClientHandlingThread( LPVOID lpParam )
 {
 	LThreadType = THREAD_CLIENT ;
+	// TLS(Thread Local Storage)
+	// 이 스레드는 클라이언트 핸들링 스레드
 
 	HANDLE hEvent = (HANDLE)lpParam ;
+	// 메인스레드에서 생성한 이벤트를 매개인자로 받아옴
 
 	/// Timer
 	HANDLE hTimer = CreateWaitableTimer(NULL, FALSE, NULL) ;
+	//////////////////////////////////////////////////////////////////////////
+	//
+	//	HANDLE WINAPI CreateWaitableTimer(
+	//		_In_opt_  LPSECURITY_ATTRIBUTES lpTimerAttributes,		// 보안 설정
+	//		_In_      BOOL bManualReset,							// 수동 리셋
+	//		_In_opt_  LPCTSTR lpTimerName							// 타이머 네임
+	//	);
+	//
+	// Sleep()을 사용한다면 Sleep 되어 있는 동안 해당 thread는 다른 일을 할 수 없다.
+	// 즉, 이런 경우 Waitable Timer를 이용하여 UI쪽 thread는 지속적으로 Event를 받을 수 있도록 하여야 하고,
+	// 별도의 작업 thread를 두어 그곳에서 Sleep을 해야 한다
+	//
+	// 그냥 Sleep을 할 경우 Wake-up 하는데 문제가 될 수 있으므로 Waitable Timer를 이용하는 것이 좋다.
+	//
+	// http://blog.naver.com/kjyong86/140151818181 참고
+	//////////////////////////////////////////////////////////////////////////
+
 	if (hTimer == NULL)
 		return -1 ;
-
+	
 	LARGE_INTEGER liDueTime ;
-	liDueTime.QuadPart = -10000000 ; ///< 1초 후부터 동작
+	liDueTime.QuadPart = -10000000 ; // 1초 후부터 동작
+
+	//////////////////////////////////////////////////////////////////////////
+	// SetWaitabletimer 시간 단위 = 100 나노초
+	// 1000,000,000나노초 = 1초
+	//////////////////////////////////////////////////////////////////////////
 	if ( !SetWaitableTimer(hTimer, &liDueTime, 100, TimerProc, NULL, TRUE) )
 		return -1 ;
-		
+	//////////////////////////////////////////////////////////////////////////
+	// 0.1초 주기로 TimerProc 함수 실행 하도록 콜백 설정
+	// 
+	// GClientManager->OnPeriodWork() ;
+	// 클라이언트 매니저가 주기적으로 수행해야 할 일을 0.1초마다 수행한다.
 
 	while ( true )
 	{
 		/// accept or IO/Timer completion   대기
 		DWORD result = WaitForSingleObjectEx(hEvent, INFINITE, TRUE) ;
+		// 이벤트 신호 들어올 때가지 무한 대기
 
 		/// client connected
 		if ( result == WAIT_OBJECT_0 )
 		{
 	
 			/// 소켓 정보 구조체 할당과 초기화
-			
 			ClientSession* client = GClientManager->CreateClient(g_AcceptedSocket) ;
+			//////////////////////////////////////////////////////////////////////////
+			// 클라이언트 매니저에 매개인자로 접속 대기 큐에서 accept 된 소켓 정보를 넘겨 CreateClient
+			// 클라 생성
 			
 			SOCKADDR_IN clientaddr ;
 			int addrlen = sizeof(clientaddr) ;
 			getpeername(g_AcceptedSocket, (SOCKADDR*)&clientaddr, &addrlen) ;
+
 
 			// 클라 접속 처리
 			if ( false == client->OnConnect(&clientaddr) )
