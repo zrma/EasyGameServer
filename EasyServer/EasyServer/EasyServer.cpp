@@ -85,6 +85,8 @@ int _tmain(int argc, _TCHAR* argv[])
 
 	/// crash 발생시 dump 남기기 위해서
 	SetUnhandledExceptionFilter(ExceptionFilter) ;
+	// ExceptionFilter
+	// Exception.cpp 쪽에서 전역 함수로 선언 되어 있음
 
 	LThreadType = THREAD_MAIN ;
 
@@ -407,6 +409,8 @@ unsigned int WINAPI ClientHandlingThread( LPVOID lpParam )
 			//////////////////////////////////////////////////////////////////////////
 			// 클라이언트 매니저에 매개인자로 접속 대기 큐에서 accept 된 소켓 정보를 넘겨 CreateClient
 			// 클라 생성
+			//
+			// ClientManager.cpp 참조
 			
 			SOCKADDR_IN clientaddr ;
 			int addrlen = sizeof(clientaddr) ;
@@ -418,6 +422,7 @@ unsigned int WINAPI ClientHandlingThread( LPVOID lpParam )
 			{
 				client->Disconnect() ;
 			}
+			// ClientSession.cpp 참조
 		
 			continue ; // 다시 대기로
 		}
@@ -446,6 +451,7 @@ unsigned int WINAPI DatabaseHandlingThread( LPVOID lpParam )
 
 		Sleep(1) ;
 	}
+	// DB 쪽은 빠르게 무한루프 돌면서 처리
 
 	return 0 ;
 }
@@ -455,4 +461,5 @@ void CALLBACK TimerProc(LPVOID lpArg, DWORD dwTimerLowValue, DWORD dwTimerHighVa
 	assert( LThreadType == THREAD_CLIENT ) ;
 
 	GClientManager->OnPeriodWork() ;
+	// 클라이언트 쪽은 0.1초 단위로 콜백 함수 호출하면서 주기적으로 해야 할 일 처리
 }
