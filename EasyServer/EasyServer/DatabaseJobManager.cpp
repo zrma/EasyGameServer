@@ -15,7 +15,6 @@ void DatabaseJobManager::ExecuteDatabaseJobs()
 	while ( mDbJobRequestQueue.PopFront(jobContext) )
 	{
 		/// 여기서 DB호출해서 처리하고 
-
 		jobContext->mSuccess = jobContext->OnExecute() ;
 
 		/// 그 결과를 result queue에 담아 놓음

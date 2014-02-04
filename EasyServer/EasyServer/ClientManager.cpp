@@ -46,7 +46,7 @@ ClientSession* ClientManager::CreateClient(SOCKET sock)
 void ClientManager::BroadcastPacket(ClientSession* from, PacketHeader* pkt)
 {
 	/// FYI : C++ STL iterator 스타일의 루프
-	// 오버라이딩 된 ++을 이용해서 차례대로 순회
+	// 오버라이딩 된 ++ 연산자를 이용해서 차례대로 순회
 	for ( ClientList::const_iterator it = mClientList.begin() ; it != mClientList.end() ; ++it )
 	{
 		ClientSession* client = it->second ;
@@ -58,7 +58,7 @@ void ClientManager::BroadcastPacket(ClientSession* from, PacketHeader* pkt)
 		// 보낸 이에게는 패스
 		
 		client->Send(pkt) ;
-		// ClientSession.cpp 참조
+		// ClientSession
 	}
 }
 
@@ -90,17 +90,25 @@ void ClientManager::OnPeriodWork()
 	}
 
 	/// 처리 완료된 DB 작업들 각각의 Client로 dispatch
-	DispatchDatabaseJobResults() ;
-		
+	DispatchDatabaseJobResults() ;		
 }
 
 void ClientManager::CollectGarbageSessions()
 {
 	std::vector<ClientSession*> disconnectedSessions ;
 	
-	///FYI: C++ 11 람다를 이용한 스타일
-	std::for_each(mClientList.begin(), mClientList.end(),
-		[&](ClientList::const_reference it)
+	/// FYI : C++ 11 람다를 이용한 스타일
+	//////////////////////////////////////////////////////////////////////////
+	// for_each 사용법
+	// http://psychoria.blog.me/40167726390 참조
+	//////////////////////////////////////////////////////////////////////////
+	// 람다 사용법
+	// http://psychoria.blog.me/40171894460
+	// http://psychoria.blog.me/40172034934 참조
+	//////////////////////////////////////////////////////////////////////////
+	std::for_each ( mClientList.begin() , mClientList.end() , 
+		[&](ClientList::const_reference it )
+		// Call by Reference(&)를 이용해서 이터레이터 람다 사용, 아래 함수 실행
 		{
 			ClientSession* client = it.second ;
 
@@ -110,19 +118,27 @@ void ClientManager::CollectGarbageSessions()
 	) ;
 	
 
-	///FYI: C언어 스타일의 루프
-	for (size_t i=0 ; i<disconnectedSessions.size() ; ++i)
+	/// FYI : C언어 스타일의 루프
+	for ( size_t i = 0 ; i < disconnectedSessions.size() ; ++i )
 	{
 		ClientSession* client = disconnectedSessions[i] ;
-		mClientList.erase(client->mSocket) ;
-		delete client ;
-	}
+		// vector 자료구조에 대해서 오버라이딩 된 [] 연산자를 통해 배열처럼 사용
 
+		mClientList.erase(client->mSocket) ;
+		// 우선 클라이언트 리스트에서 해당 목록을 지운다
+
+		delete client ;
+		//////////////////////////////////////////////////////////////////////////
+		// 삭제 예정 벡터는 스택에 들어가 있다.
+		// 하지만 동적 메모리 영역에 저장 된 내용물은 지워지지 않았으므로 여기서 delete
+		//////////////////////////////////////////////////////////////////////////
+	}
 }
 
+// 클라이언트 세션 별로 주기적으로 할 일
 void ClientManager::ClientPeriodWork()
 {
-	/// FYI: C++ 11 스타일의 루프
+	/// FYI : C++ 11 스타일의 루프
 	for (auto& it : mClientList)
 	{
 		ClientSession* client = it.second ;
@@ -134,6 +150,9 @@ void ClientManager::DispatchDatabaseJobResults()
 {
 	/// 쌓여 있는 DB 작업 처리 결과들을 각각의 클라에게 넘긴다
 	DatabaseJobContext* dbResult = nullptr ;
+	// 추상 클래스 포인터 선언 및 초기화
+
+	// DB Job 매니저에서 계속 Pop
 	while ( GDatabaseJobManager->PopDatabaseJobResult(dbResult) )
 	{
 		if ( false == dbResult->mSuccess )
@@ -142,6 +161,16 @@ void ClientManager::DispatchDatabaseJobResults()
 		}
 		else
 		{
+			//////////////////////////////////////////////////////////////////////////
+			// typeid 를 사용하기 위해 typeinfo.h 인클루드
+			// stdafx.h 에 #include <typeinfo> 되어 있음
+			//
+			// class의 타입을 알기 위한 키워드
+			//
+			// DatabaseJobContext가 추상 클래스이므로 해당 클래스를 상속 받은 하위 클래스의
+			// 타입에 따라서 수행해야 할 함수들을 다르게 지정 할 수 있음
+			//////////////////////////////////////////////////////////////////////////
+
 			if ( typeid(*dbResult) == typeid(CreatePlayerDataContext) )
 			{
 				CreatePlayerDone(dbResult) ;
@@ -159,16 +188,23 @@ void ClientManager::DispatchDatabaseJobResults()
 				{
 					/// dispatch here....
 					it->second->DatabaseJobDone(dbResult) ;
+					// ClientSession.cpp 파일 참조
 				}
 			}
 		}
-	
 	
 		/// 완료된 DB 작업 컨텍스트는 삭제해주자
 		DatabaseJobContext* toBeDelete = dbResult ;
 		delete toBeDelete ;
 	}
 }
+
+//////////////////////////////////////////////////////////////////////////
+// DB쪽에 요청 처리하는 이해를 돕기 위한 주석
+// 
+// Push Request / Pop Result 로 구성 되어 있음
+// DatabaseJobManager.cpp 참조
+//////////////////////////////////////////////////////////////////////////
 
 void ClientManager::CreatePlayer(int pid, double x, double y, double z, const char* name, const char* comment)
 {
@@ -181,9 +217,11 @@ void ClientManager::CreatePlayer(int pid, double x, double y, double z, const ch
 	strcpy_s(newPlayerJob->mComment, comment) ;
 
 	GDatabaseJobManager->PushDatabaseJobRequest(newPlayerJob) ;
-
 }
 
+//////////////////////////////////////////////////////////////////////////
+// 삭제 컨텍스트를 만들어서 해당 객체를 Push Request 함수를 이용해서 처리 요청
+//////////////////////////////////////////////////////////////////////////
 void ClientManager::DeletePlayer(int pid)
 {
 	DeletePlayerDataContext* delPlayerJob = new DeletePlayerDataContext(pid) ;
@@ -193,6 +231,8 @@ void ClientManager::DeletePlayer(int pid)
 void ClientManager::CreatePlayerDone(DatabaseJobContext* dbJob)
 {
 	CreatePlayerDataContext* createJob = dynamic_cast<CreatePlayerDataContext*>(dbJob) ;
+	// 부모의 추상화 클래스의 포인터를 인자로 받았으므로 dynamic_cast로 클래스 형 변환 해서
+	// 자식 클래스인 CreatePlayerDataContext로 캐스팅
 
 	printf("PLAYER[%d] CREATED: %s \n", createJob->mPlayerId, createJob->mPlayerName) ;
 }
@@ -200,6 +240,7 @@ void ClientManager::CreatePlayerDone(DatabaseJobContext* dbJob)
 void ClientManager::DeletePlayerDone(DatabaseJobContext* dbJob)
 {
 	DeletePlayerDataContext* deleteJob = dynamic_cast<DeletePlayerDataContext*>(dbJob) ;
+	// 위의 경우와 같음
 	
 	printf("PLAYER [%d] DELETED\n", deleteJob->mPlayerId) ;
 
