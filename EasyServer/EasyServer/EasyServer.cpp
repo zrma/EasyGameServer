@@ -183,7 +183,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	//
 	// 참고
 	// IPPROTO_TCP 레벨에서 사용 할 수 옵션과 데이터 형
-	// TCP_NODELAY - 불값으로 Nagle 알고리즘 제어
+	// TCP_NODELAY - 불값으로 nagle 알고리즘 제어
 	//////////////////////////////////////////////////////////////////////////
 
 	/// bind
