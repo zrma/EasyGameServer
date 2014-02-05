@@ -109,12 +109,12 @@ bool ClientSession::PostRecv()
 	//////////////////////////////////////////////////////////////////////////
 	{
 		if ( WSAGetLastError() != WSA_IO_PENDING )
-			return false ;
 		//////////////////////////////////////////////////////////////////////////
 		// WSA_IO_PENDING 에러에 대해서 
 		// Recv(수신) 작업을 할때에는 GetQueuedCompletionStatus()로 비동기 작업 완료에 대한
 		// 통지가 왔을 때 처리해 주면 된다.
 		//////////////////////////////////////////////////////////////////////////
+			return false ;
 	}
 
 	IncOverlappedRequest() ;
@@ -131,6 +131,20 @@ void ClientSession::Disconnect()
 	printf("[DEBUG] Client Disconnected: IP=%s, PORT=%d\n", inet_ntoa(mClientAddr.sin_addr), ntohs(mClientAddr.sin_port)) ;
 
 	::shutdown(mSocket, SD_BOTH) ;
+	//////////////////////////////////////////////////////////////////////////
+	// 소켓을 닫기 전 send, receive를 막기 위해 입출력 스트림을 종료시킨다.
+	//
+	// 우아한 연결 종료 half-close : 송, 수신 중 하나의 스트림만 종료해야하는 상황이 발생할 수 있다.
+	// int shutdown( SOCKET s, int how ) 함수 사용
+	// SD_RECEIVE : 입력( 수신 ) 스트림 종료
+	// SD_SEND : 출력( 송신 ) 스트림 종료
+	// SD_BOTH : 입, 출력 스트림 종료
+	//
+	// http://hyulim.tistory.com/68
+	// http://network-dev.tistory.com/670
+	// http://blog.naver.com/ksg7514/100163778831 참조
+	//////////////////////////////////////////////////////////////////////////
+
 	::closesocket(mSocket) ;
 
 	mConnected = false ;
