@@ -67,6 +67,9 @@ bool ClientSession::PostRecv()
 	DWORD recvbytes = 0 ;
 	DWORD flags = 0 ;
 	WSABUF buf ;
+
+	//////////////////////////////////////////////////////////////////////////
+	// CircularBuffer.cpp 참조
 	buf.len = (ULONG)mRecvBuffer.GetFreeSpaceSize() ;
 	buf.buf = (char*)mRecvBuffer.GetBuffer() ;
 
@@ -117,6 +120,7 @@ bool ClientSession::PostRecv()
 			return false ;
 	}
 
+	//////////////////////////////////////////////////////////////////////////
 	IncOverlappedRequest() ;
 	// Overlapped IO 요청 했음. 카운트 증가
 
@@ -153,7 +157,9 @@ void ClientSession::Disconnect()
 
 void ClientSession::OnRead(size_t len)
 {
+	// CircularBuffer.cpp 참조
 	mRecvBuffer.Commit(len) ;
+	// 버퍼 영역 크기 증가
 
 	/// 패킷 파싱하고 처리
 	while ( true )
@@ -174,6 +180,10 @@ void ClientSession::OnRead(size_t len)
 			{
 				LoginResult inPacket ;
 				mRecvBuffer.Read((char*)&inPacket, header.mSize) ;
+				//////////////////////////////////////////////////////////////////////////
+				// CircularBuffer에서 Peek는 읽기만 하는 것
+				// Read는 읽고 나서, 읽은 만큼 제거
+				//////////////////////////////////////////////////////////////////////////
 
 				/// 로그인은 DB 작업을 거쳐야 하기 때문에 DB 작업 요청한다.
 				LoadPlayerDataContext* newDbJob = new LoadPlayerDataContext(mSocket, inPacket.mPlayerId) ;
@@ -350,12 +360,14 @@ void ClientSession::LoginDone(int pid, double x, double y, double z, const char*
 
 
 
-///////////////////////////////////////////////////////////
-
+//////////////////////////////////////////////////////////////////////////
+// 비동기 입력 WSARecv에 의해서, 입력이 들어오면 콜백으로 RecvCompletion 실행
+//////////////////////////////////////////////////////////////////////////
 void CALLBACK RecvCompletion(DWORD dwError, DWORD cbTransferred, LPWSAOVERLAPPED lpOverlapped, DWORD dwFlags)
 {
 	ClientSession* fromClient = static_cast<OverlappedIO*>(lpOverlapped)->mObject ;
 	
+	//////////////////////////////////////////////////////////////////////////
 	fromClient->DecOverlappedRequest() ;
 	// Overlapped IO 완료 했음. 카운트 감소
 
@@ -385,6 +397,7 @@ void CALLBACK SendCompletion(DWORD dwError, DWORD cbTransferred, LPWSAOVERLAPPED
 {
 	ClientSession* fromClient = static_cast<OverlappedIO*>(lpOverlapped)->mObject ;
 
+	//////////////////////////////////////////////////////////////////////////
 	fromClient->DecOverlappedRequest() ;
 	// Overlapped IO 완료 했음. 카운트 감소
 
