@@ -155,6 +155,10 @@ void ClientSession::Disconnect()
 }
 
 
+//////////////////////////////////////////////////////////////////////////
+// 비동기 입력 완료 후 RecvCompletion 콜백 발생하면
+// 받은 데이터 사이즈를 인자로 넘겨서 OnRead 실행
+//////////////////////////////////////////////////////////////////////////
 void ClientSession::OnRead(size_t len)
 {
 	// CircularBuffer.cpp 참조
@@ -172,6 +176,36 @@ void ClientSession::OnRead(size_t len)
 		/// 패킷 완성이 되는가? 
 		if ( mRecvBuffer.GetStoredSize() < (header.mSize - sizeof(PacketHeader)) )
 			return ;
+
+		//////////////////////////////////////////////////////////////////////////
+		// 이 위의 상단들에서 return 하게 되면 하단의 RecvCompletion 에서
+		// 다시 PostRecv() 메소드를 호출하게 되어 통신이 재개 되어 다시 받아오고
+		// 결국 요건을 충족 시키게 되면 아래로 진입 하게 되어 패킷 처리 하게 됨
+		//
+		// 패킷을 처리 하고 나면 또 위의 if 조건문들에 걸려서 return 되고
+		// 다시 PostRecv() 메소드를 호출하게 되거나, 하단의 패킷 핸들링 switch문으로
+		// 다시 진입하게 되거나... 이 일련 과정을 계속 반복
+		//////////////////////////////////////////////////////////////////////////
+		
+		//////////////////////////////////////////////////////////////////////////
+		// EasyServer.cpp의 클라이언트 핸들링 스레드에서 새로운 접속이 허용 되면
+		// 
+		// ClientSession* client = GClientManager->CreateClient(g_AcceptedSocket) ;
+		// client->OnConnect(&clientaddr) ;
+		//
+		// CreateClient() 한 후에 ClientSession::OnConnect() 하면
+		// OnConnect()에선 PostRecv() 하게 된다.
+		//
+		// PostRecv()에서 비동기 입력 종료 되면 콜백 RecvCompletion() 호출
+		// 해당 함수 RecvCompletion()은 다시 PostRecv() 호출
+		//
+		//
+		// 개요
+		//
+		// Create -> OnConnect -> PostRecv -> Callback -> PostRecv -> Callback -> ... 계속 반복
+		//
+		// (Callback에서 짬짬히 계속 OnRead하고, OnRead에서는 패킷이 완성 될 때마다 처리)
+		//////////////////////////////////////////////////////////////////////////
 
 		/// 패킷 핸들링
 		switch ( header.mType )
@@ -366,7 +400,13 @@ void ClientSession::LoginDone(int pid, double x, double y, double z, const char*
 void CALLBACK RecvCompletion(DWORD dwError, DWORD cbTransferred, LPWSAOVERLAPPED lpOverlapped, DWORD dwFlags)
 {
 	ClientSession* fromClient = static_cast<OverlappedIO*>(lpOverlapped)->mObject ;
-	
+	//////////////////////////////////////////////////////////////////////////
+	// lpOverlapped 인자를 OverlappedIO 형태로 형변환 하면
+	// 해당 구조체의 멤버 변수 mObject => ClientSession*
+	// 
+	// 바로 이 포인터가 비동기 입력 WSARecv로 보낸 ClientSession 객체의 주소값
+	// 
+	// PostRecv 멤소드에서 mOverlappedRecv.mObject = this ; 이 부분 참조
 	//////////////////////////////////////////////////////////////////////////
 	fromClient->DecOverlappedRequest() ;
 	// Overlapped IO 완료 했음. 카운트 감소
