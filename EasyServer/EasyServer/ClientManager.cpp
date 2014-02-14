@@ -174,21 +174,30 @@ void ClientManager::DispatchDatabaseJobResults()
 			if ( typeid(*dbResult) == typeid(CreatePlayerDataContext) )
 			{
 				CreatePlayerDone(dbResult) ;
+				// ClientManager 객체에서 처리
 			}
 			else if ( typeid(*dbResult) == typeid(DeletePlayerDataContext) )
 			{
 				DeletePlayerDone(dbResult) ;
+				// ClientManager 객체에서 처리
 			}
 			else
 			{
-				/// 여기는 해당 DB요청을 했던 클라이언트에서 직접 해줘야 는 경우다
+				/// 여기는 해당 DB요청을 했던 클라이언트에서 직접 해줘야 하는 경우다
 				auto& it = mClientList.find(dbResult->mSockKey) ;
 
 				if ( it != mClientList.end() && it->second->IsConnected() )
 				{
 					/// dispatch here....
 					it->second->DatabaseJobDone(dbResult) ;
+					//////////////////////////////////////////////////////////////////////////
 					// ClientSession.cpp 파일 참조
+					//
+					// LoadPlayerDataContext
+					// UpdatePlayerDataContext
+					//
+					// 위의 두 케이스는 여기(각각 ClientSession 객체)에서 처리
+					//////////////////////////////////////////////////////////////////////////
 				}
 			}
 		}

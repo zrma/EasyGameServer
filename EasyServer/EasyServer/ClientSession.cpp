@@ -85,6 +85,11 @@ bool ClientSession::PostRecv()
 	//////////////////////////////////////////////////////////////////////////
 
 	mOverlappedRecv.mObject = this ;
+	//////////////////////////////////////////////////////////////////////////
+	// 비동기 입력 호출이 완료 되었을 때 콜백 함수가 실행 되면
+	// 어느 호출이 부른 것인지를 식별하기 위해
+	// ClientSession* 를 담고 있는 멤버변수 mObject에 this (현재 객체) 주소 대입
+	//////////////////////////////////////////////////////////////////////////
 
 	//////////////////////////////////////////////////////////////////////////
 	// 비동기 입출력 시작
@@ -254,6 +259,12 @@ void ClientSession::OnRead(size_t len)
 	}
 }
 
+
+//////////////////////////////////////////////////////////////////////////
+// ClientManager에서 BroadcastPacket() 하면 Send() 호출
+//
+// PostRecv() : 수신 / Send() : 송신
+//////////////////////////////////////////////////////////////////////////
 bool ClientSession::Send(PacketHeader* pkt)
 {
 	if ( !IsConnected() )
@@ -279,13 +290,21 @@ bool ClientSession::Send(PacketHeader* pkt)
 	DWORD flags = 0 ;
 
 	WSABUF buf ;
+
+	//////////////////////////////////////////////////////////////////////////
+	// CircularBuffer.cpp 참조
 	buf.len = (ULONG)mSendBuffer.GetContiguiousBytes() ;
 	buf.buf = (char*)mSendBuffer.GetBufferStart() ;
 	
 	memset(&mOverlappedSend, 0, sizeof(OverlappedIO)) ;
-	mOverlappedSend.mObject = this ;
 
+	mOverlappedSend.mObject = this ;
+	// PostRecv()에서와 동일
+
+	//////////////////////////////////////////////////////////////////////////
 	// 비동기 입출력 시작
+	// 상단의 WSARecv() 참고
+	//////////////////////////////////////////////////////////////////////////
 	if ( SOCKET_ERROR == WSASend(mSocket, &buf, 1, &sendbytes, flags, &mOverlappedSend, SendCompletion) )
 	{
 		if ( WSAGetLastError() != WSA_IO_PENDING )
@@ -327,9 +346,11 @@ bool ClientSession::Broadcast(PacketHeader* pkt)
 void ClientSession::OnTick()
 {
 	/// 클라별로 주기적으로 해야 될 일은 여기에
-
+	
 	/// 특정 주기로 DB에 위치 저장
 	if ( ++mDbUpdateCount == PLAYER_DB_UPDATE_CYCLE )
+	// 현재 1초 마다 OnTick() 호출
+	// 1분마다 플레이어 위치 저장
 	{
 		mDbUpdateCount = 0 ;
 		UpdatePlayerDataContext* updatePlayer = new UpdatePlayerDataContext(mSocket, mPlayerId) ;
@@ -375,7 +396,9 @@ void ClientSession::UpdateDone()
 }
 
 
-
+//////////////////////////////////////////////////////////////////////////
+// 로그인을 시도해서 유저 데이터를 불러오면, 데이터를 읽어서 클라이언트 쪽에 Send()
+//////////////////////////////////////////////////////////////////////////
 void ClientSession::LoginDone(int pid, double x, double y, double z, const char* name)
 {
 	LoginResult outPacket ;
@@ -395,7 +418,7 @@ void ClientSession::LoginDone(int pid, double x, double y, double z, const char*
 
 
 //////////////////////////////////////////////////////////////////////////
-// 비동기 입력 WSARecv에 의해서, 입력이 들어오면 콜백으로 RecvCompletion 실행
+// 비동기 입력 WSARecv()에 의해서, 입력이 완료 되면 콜백으로 RecvCompletion 실행
 //////////////////////////////////////////////////////////////////////////
 void CALLBACK RecvCompletion(DWORD dwError, DWORD cbTransferred, LPWSAOVERLAPPED lpOverlapped, DWORD dwFlags)
 {
@@ -432,7 +455,9 @@ void CALLBACK RecvCompletion(DWORD dwError, DWORD cbTransferred, LPWSAOVERLAPPED
 	}
 }
 
-
+//////////////////////////////////////////////////////////////////////////
+// 비동기 출력 WSASend()에 의해서 출력이 완료 되면 콜백으로 SendCompletion 실행
+//////////////////////////////////////////////////////////////////////////
 void CALLBACK SendCompletion(DWORD dwError, DWORD cbTransferred, LPWSAOVERLAPPED lpOverlapped, DWORD dwFlags)
 {
 	ClientSession* fromClient = static_cast<OverlappedIO*>(lpOverlapped)->mObject ;
@@ -452,6 +477,7 @@ void CALLBACK SendCompletion(DWORD dwError, DWORD cbTransferred, LPWSAOVERLAPPED
 	}
 
 	fromClient->OnWriteComplete(cbTransferred) ;
+	// 보내기 완료한 데이터를 버퍼에서 제거
 
 }
 
