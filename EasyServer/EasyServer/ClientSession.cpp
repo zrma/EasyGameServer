@@ -168,7 +168,7 @@ void ClientSession::OnRead(size_t len)
 {
 	// CircularBuffer.cpp 참조
 	mRecvBuffer.Commit(len) ;
-	// 버퍼 영역 크기 증가
+	// 버퍼 쓰기 영역 크기 증가
 
 	/// 패킷 파싱하고 처리
 	while ( true )
@@ -177,10 +177,17 @@ void ClientSession::OnRead(size_t len)
 		PacketHeader header ;
 		if ( false == mRecvBuffer.Peek((char*)&header, sizeof(PacketHeader)) )
 			return ;
+		// 아직 버퍼가 패킷 헤더 사이즈만큼 차지 않았다.
+		// 즉 헤더 부분만큼 마저도 읽기 실패
 
 		/// 패킷 완성이 되는가? 
 		if ( mRecvBuffer.GetStoredSize() < (header.mSize - sizeof(PacketHeader)) )
 			return ;
+		// 헤더에 담겨 있는 mSize는 패킷 전체 사이즈
+		// 거기서 헤더 만큼 뺀 것이 나머지 데이터량
+		// 
+		// 버퍼에 남아 있는 것이 실제 헤더에 담겨있는 mSize(- 헤더크기) 보다 작다면?
+		// 데이터가 덜 와서 패킷 완성이 안 된 것임
 
 		//////////////////////////////////////////////////////////////////////////
 		// 이 위의 상단들에서 return 하게 되면 하단의 RecvCompletion 에서
@@ -326,6 +333,7 @@ void ClientSession::OnWriteComplete(size_t len)
 	if ( mSendBuffer.GetContiguiousBytes() > 0 )
 	{
 		assert(false) ;
+		// 이러면 디버깅 모드에서는 무조건 이 안에 들어왔을 때 assert 되고 중지!
 	}
 
 }

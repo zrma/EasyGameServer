@@ -3,10 +3,11 @@
 #include "SQLStatement.h"
 #include "DbHelper.h"
 
-
-
 bool LoadPlayerDataContext::OnExecute()
 {
+	//////////////////////////////////////////////////////////////////////////
+	// const char* SQL_SelectTest = "SELECT name, pos_x, pos_y, pos_z FROM players WHERE pid=?" ;
+	//////////////////////////////////////////////////////////////////////////
 	DbHelper dbhelper(SQL_SelectTest) ;
 	dbhelper.BindParamInt(mPlayerId) ;
 
@@ -28,6 +29,9 @@ bool LoadPlayerDataContext::OnExecute()
 
 bool CreatePlayerDataContext::OnExecute()
 {
+	//////////////////////////////////////////////////////////////////////////
+	// const char* SQL_InsertTest = "INSERT INTO players VALUES(?, ?, ?, ?, ?, ?)" ;
+	//////////////////////////////////////////////////////////////////////////
 	DbHelper dbhelper(SQL_InsertTest) ;
 
 	dbhelper.BindParamInt(mPlayerId) ;
@@ -45,7 +49,11 @@ bool CreatePlayerDataContext::OnExecute()
 
 bool DeletePlayerDataContext::OnExecute()
 {
+	//////////////////////////////////////////////////////////////////////////
+	// const char* SQL_DeleteTest = "DELETE FROM players WHERE pid=?" ;
+	//////////////////////////////////////////////////////////////////////////
 	DbHelper dbhelper(SQL_DeleteTest) ;
+
 	dbhelper.BindParamInt(mPlayerId) ;
 
 	if ( RESULT_ERROR == dbhelper.FetchRow() )
@@ -57,6 +65,9 @@ bool DeletePlayerDataContext::OnExecute()
 
 bool UpdatePlayerDataContext::OnExecute()
 {
+	//////////////////////////////////////////////////////////////////////////
+	// const char* SQL_UpdateTest = "UPDATE players SET pos_x=?, pos_y=?, pos_z=?, comment=? WHERE pid=?" ;
+	//////////////////////////////////////////////////////////////////////////
 	DbHelper dbhelper(SQL_UpdateTest) ;
 
 	dbhelper.BindParamDouble(mPosX) ;

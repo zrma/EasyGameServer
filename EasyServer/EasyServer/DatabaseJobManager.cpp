@@ -10,6 +10,10 @@ DatabaseJobManager* GDatabaseJobManager = nullptr ;
 // 아래 함수는 DB 처리 쓰레드에서 불려야 한다
 //
 // EasyServer.cpp 에 있는 DB 핸들링 스레드 참고
+//
+// 멤버변수로 갖고 있는, DB 작업 요청 큐(mDbJobRequestQueue) 안의 
+// 작업 대기 되어 있는 DB Job Context 들을 하나씩 꺼내서 처리 한 후 
+// 작업 완료 큐 (mDbJobResultQueue) 로 집어넣는다.
 //////////////////////////////////////////////////////////////////////////
 void DatabaseJobManager::ExecuteDatabaseJobs()
 {
@@ -28,7 +32,7 @@ void DatabaseJobManager::ExecuteDatabaseJobs()
 }
 
 //////////////////////////////////////////////////////////////////////////
-// 하단의 두 함수가 불리는 것은?
+// 하단의 두 메소드가 불리는 것은?
 //
 // EasyServer.cpp 에 있는 클라이언트 핸들링 스레드에서 
 //
@@ -48,6 +52,11 @@ void DatabaseJobManager::ExecuteDatabaseJobs()
 //
 //
 // 위의 1, 2 두 가지 경우 모두 클라이언트 핸들링 스레드에서 호출 됨
+//
+// 위의 두 가지 경우 모두, 즉 아래 하단의 2개 메소드 모두
+// DB 작업 매니저의 멤버 변수인 큐에 작업을 넣거나 꺼내는 역할만 함
+//
+// 큐 자료구조의 PushBack() 과 PopFront() 를 메소드로 감싸놓은 상태
 //////////////////////////////////////////////////////////////////////////
 
 /// 아래 함수는 클라이언트 처리 쓰레드에서 불려야 한다

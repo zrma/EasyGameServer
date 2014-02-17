@@ -12,6 +12,8 @@
 
 #include <winsock2.h>
 // 윈도우 소켓 사용을 위한 헤더
+//
+// 이 헤더가 windows.h 보다 아래로 내려가면 컴파일 안 됨!
 
 #include <windows.h>
 

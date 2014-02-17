@@ -17,6 +17,11 @@ struct DatabaseJobContext
 	virtual ~DatabaseJobContext() {}
 
 	virtual bool OnExecute() = 0 ;
+	//////////////////////////////////////////////////////////////////////////
+	// EasyServer.cpp 의 DB 핸들링 스레드에서 무한루프 돌면서 OnExecute() 실행
+	//
+	// 순수가상 함수 OnExecute()를 상속 받은 각각의 자식 Context가 실제 작업 수행
+	//////////////////////////////////////////////////////////////////////////
 
 	void SetSuccess(bool success) { mSuccess = success ; }
 
