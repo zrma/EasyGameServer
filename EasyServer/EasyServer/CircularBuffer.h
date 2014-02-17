@@ -192,7 +192,7 @@ private:
 
 	// 위의 자료 구조를 그림으로 그려보면?
 	//
-	// [전략]- mBRegionPointer -(mBRegionSize)-[mBRegionEnd]-(GetBFreeSpace)- mARegionPointer -[후략]
+	// mBuffer - mBRegionPointer -(mBRegionSize)-[mBRegionEnd]-(GetBFreeSpace)- mARegionPointer -[후략 (A버퍼 참조)]
 	//////////////////////////////////////////////////////////////////////////
 
 private:

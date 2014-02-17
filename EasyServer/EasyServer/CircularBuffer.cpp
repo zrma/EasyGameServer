@@ -56,7 +56,7 @@ bool CircularBuffer::Peek(OUT char* destbuf, size_t bytes) const
 
 	assert( cnt == 0 ) ;
 	// A버퍼 + B버퍼 데이터 싹 다 읽어와서 지정한 크기만큼 모두 읽었어야 하는데
-	// cnt(읽을 양 남은 카운트 수) 가 0이 아니면 잘못 된 거다.
+	// cnt(읽을 양 남은 카운트 수) 가 0 이 아니면 잘못 된 거다.
 	//
 	// 저 위의 if( mARegionSize + mBRegionSize < bytes ) return false ; 구문에서 걸러졌어야 됨
 
@@ -64,24 +64,39 @@ bool CircularBuffer::Peek(OUT char* destbuf, size_t bytes) const
 
 }
 
+//////////////////////////////////////////////////////////////////////////
+// 위의 Peek가 헤더를 일단 읽어본 후에, 헤더에서 담고 있는 mSize 만큼 버퍼에 들어있다면
+// 그 부분이 실질적인 패킷 데이터 부분이므로 아래의 Read() 메소드로 읽어옴
+//////////////////////////////////////////////////////////////////////////
 bool CircularBuffer::Read(OUT char* destbuf, size_t bytes)
 {
 	assert( mBuffer != nullptr ) ;
 
 	if( mARegionSize + mBRegionSize < bytes )
 		return false ;
+	// 여기까지는 Peek() 와 동일한 방어코드
 
 	size_t cnt = bytes ;
 	size_t aRead = 0 ;
-
 
 	/// A, B 영역 둘다 데이터가 있는 경우는 A먼저 읽는다
 	if ( mARegionSize > 0 )
 	{
 		aRead = (cnt > mARegionSize) ? mARegionSize : cnt ;
 		memcpy(destbuf, mARegionPointer, aRead) ;
+		
+		//////////////////////////////////////////////////////////////////////////
 		mARegionSize -= aRead ;
 		mARegionPointer += aRead ;
+		//////////////////////////////////////////////////////////////////////////
+		// Peek() 메소드와 다르게 더 추가 된 부분
+		//
+		// A버퍼 읽었으니 A버퍼 시작 포인터는 읽은 만큼(aRead) 증가시키고
+		// A버퍼의 사이즈는 감소 시킨다.
+		//
+		// A버퍼 시작부분--(읽은 만큼 우측으로 이동)--[A버퍼 사이즈]--> A버퍼 끝부분 (고정 됨)
+		//////////////////////////////////////////////////////////////////////////
+
 		cnt -= aRead ;
 	}
 	
@@ -94,8 +109,16 @@ bool CircularBuffer::Read(OUT char* destbuf, size_t bytes)
 		size_t bRead = cnt ;
 
 		memcpy(destbuf+aRead, mBRegionPointer, bRead) ;
+
+		//////////////////////////////////////////////////////////////////////////
 		mBRegionSize -= bRead ;
 		mBRegionPointer += bRead ;
+		//////////////////////////////////////////////////////////////////////////
+		// 마찬가지로 Peek() 메소드와 다르게 더 추가 된 부분
+		//
+		// 버퍼 안의 데이터들을 읽은 후에 제거시킴(실제로는 가리키는 포인터 이동)
+		//////////////////////////////////////////////////////////////////////////
+
 		cnt -= bRead ;
 	}
 
@@ -104,25 +127,56 @@ bool CircularBuffer::Read(OUT char* destbuf, size_t bytes)
 	/// A 버퍼가 비었다면 B버퍼를 맨 앞으로 당기고 A 버퍼로 지정 
 	if ( mARegionSize == 0 )
 	{
+		// B버퍼에 데이터가 있을 때
 		if ( mBRegionSize > 0 )
 		{
+			// B버퍼가 맨 앞이 아니면
 			if ( mBRegionPointer != mBuffer )
 				memmove(mBuffer, mBRegionPointer, mBRegionSize) ;
+			//////////////////////////////////////////////////////////////////////////
+			// http://kks227.blog.me/60207310880
+			// http://www.borlandforum.com/impboard/impboard.dll?action=read&db=bcb_tip&no=826
+			// http://young_0620.blog.me/50174961382 참조
+			//////////////////////////////////////////////////////////////////////////
 
 			mARegionPointer = mBuffer ;
 			mARegionSize = mBRegionSize ;
+			// B버퍼를 A버퍼로 바꿈
+
 			mBRegionPointer = nullptr ;
 			mBRegionSize = 0 ;
+			// B버퍼는 초기화
+
+			// 이 상태가 되면 A버퍼에만 데이터가 남아 있는 상태임
 		}
 		else
 		{
 			/// B에 아무것도 없는 경우 그냥 A로 스위치
 			mBRegionPointer = nullptr ;
 			mBRegionSize = 0 ;
+			// B버퍼에 아무 것도 없으므로 바로 초기화
+
 			mARegionPointer = mBuffer ;
 			mARegionSize = 0 ;
+			// A버퍼가 이미 비어 있으므로 A버퍼도 초기화
+
+			// 이 상태가 되면 CircularBuffer() 초기 생성 상태임
 		}
 	}
+
+	//////////////////////////////////////////////////////////////////////////
+	// 결과적으로 위의 if 구문을 수행하고 나면
+	// B버퍼는 사라지고, A버퍼만 남아 있는(데이터가 있는지는 차지하고서라도)
+	// 상태로 넘어오게 된다.
+	//
+	// 순서!
+	//
+	// 언제나 데이터는 A버퍼부터 읽어들이고,
+	// 읽어들이려고 했던 데이터 사이즈가 A버퍼보다 크다면 B에서 마저 읽는다.
+	//
+	// 만약 A버퍼 + B버퍼 다 합친 크기보다 더 많이 읽으려고 하면,
+	// 위에서 방어코드 에서 걸러졌어야 함
+	//////////////////////////////////////////////////////////////////////////
 
 	return true ;
 }
