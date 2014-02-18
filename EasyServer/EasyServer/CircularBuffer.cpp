@@ -178,6 +178,12 @@ bool CircularBuffer::Read(OUT char* destbuf, size_t bytes)
 	// 위에서 방어코드 에서 걸러졌어야 함
 	//////////////////////////////////////////////////////////////////////////
 
+	// A버퍼와 B버퍼 모두 비지 않은 상태에서는 (데이터양보다 조금만 읽어 왔을 때)
+	// 버퍼 위치를 재조정하거나 하는 일련의 처리를 하지 않음.
+	//
+	// 물론 데이터를 읽어나갈 때마다 각 A버퍼나 B버퍼의 시작위치는 뒤로 밀려나간다.
+	// 끝 위치는 데이터를 쓰기 할 때 뒤로 밀려나간다.
+
 	return true ;
 }
 
@@ -189,24 +195,46 @@ bool CircularBuffer::Write(const char* data, size_t bytes)
 	assert( mBuffer != nullptr ) ;
 
 	/// Read와 반대로 B가 있다면 B영역에 먼저 쓴다
+	
+	//////////////////////////////////////////////////////////////////////////
+	// 읽을 때 A부터 읽는다.
+	// 쓸 때는 B부터 먼저 쓴다.
+	//
+	// 시간적으로 A에 담겨 있는 데이터가 언제나 먼저 온 데이터
+	//////////////////////////////////////////////////////////////////////////
 	if( mBRegionPointer != nullptr )
 	{
 		if ( GetBFreeSpace() < bytes )
 			return false ;
+		// B버퍼에 데이터가 담겨 있어서, B버퍼에 이어 쓰려고 했는데 공간이 없다
 
 		memcpy(mBRegionPointer + mBRegionSize, data, bytes) ;
 		mBRegionSize += bytes ;
+		// B버퍼 쓰던 곳에 이어서 쓰기
 
 		return true ;
 	}
 
+	// B에 데이터가 있으면 위의 if문에서 걸러진 후 어떻게든 return 하므로
+	// 하단은 무조건 B가 비어 있는 상태임 = A에만 데이터가 있는 상태
+
+
 	/// A영역보다 다른 영역의 용량이 더 클 경우 그 영역을 B로 설정하고 기록
+
+	//////////////////////////////////////////////////////////////////////////
+	// CircularBuffer.h의 GetFreeSpaceSize 주석 참고
+	//
+	// A버퍼가 충분히 뒤쪽으로 밀려난 상태이므로
+	// 앞쪽에 B버퍼를 새로 만들어서 거기에 데이터를 쓰기
+	//////////////////////////////////////////////////////////////////////////
 	if ( GetAFreeSpace() < GetSpaceBeforeA() )
 	{
 		AllocateB() ;
 
 		if ( GetBFreeSpace() < bytes )
 			return false ;
+		// B버퍼 끝부분(부터 쓸 수 있는 공간)에서 A버퍼 시작부분까지 사이의 공간보다
+		// 써야 할 데이터 양이 더 많은 상황이므로 못 넣음
 
 		memcpy(mBRegionPointer + mBRegionSize, data, bytes) ;
 		mBRegionSize += bytes ;
@@ -214,6 +242,7 @@ bool CircularBuffer::Write(const char* data, size_t bytes)
 		return true ;
 	}
 	/// A영역이 더 크면 당연히 A에 쓰기
+	// A버퍼 뒤쪽에 쭉 이어서 쓰기
 	else
 	{
 		if ( GetAFreeSpace() < bytes )
@@ -240,6 +269,8 @@ void CircularBuffer::Remove(size_t len)
 		mARegionSize -= aRemove ;
 		mARegionPointer += aRemove ;
 		cnt -= aRemove ;
+		//////////////////////////////////////////////////////////////////////////
+		//     -----> A버퍼 시작   [데이터 = A영역 사이즈]  A버퍼 끝(고정)
 	}
 
 	// 제거할 용량이 더 남은경우 B에서 제거 

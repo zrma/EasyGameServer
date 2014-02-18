@@ -301,8 +301,13 @@ bool ClientSession::Send(PacketHeader* pkt)
 
 	//////////////////////////////////////////////////////////////////////////
 	// CircularBuffer.cpp 참조
+	// 버퍼 안에 데이터 쓰기 해서 들어 있는 상태
+	//////////////////////////////////////////////////////////////////////////
 	buf.len = (ULONG)mSendBuffer.GetContiguiousBytes() ;
+	// A버퍼든 B버퍼든(A버퍼부터 체크) 한쪽 버퍼 사이즈를 리턴
+	
 	buf.buf = (char*)mSendBuffer.GetBufferStart() ;
+	// A버퍼든 B버퍼든(A버퍼부터 체크) 한쪽 버퍼의 시작 주소 리턴
 	
 	memset(&mOverlappedSend, 0, sizeof(OverlappedIO)) ;
 
