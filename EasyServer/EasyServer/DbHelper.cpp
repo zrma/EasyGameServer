@@ -11,6 +11,46 @@ DbHelper::DbHelper(const char* sql)
 {
 	char* errMsg = NULL ;
 
+	//////////////////////////////////////////////////////////////////////////
+	// http://nickeys.tistory.com/entry/SQLite3 참조
+	//
+	// sqlite3_prepare vs sqlite3_prepare_v2
+	//
+	// 이 루틴은 SQL 문장을 prepared statement 객체로 전환하고 그 객체에 대한 포인터를 반환한다.
+	// -> mResult
+	//
+	// 이 인터페이스는 앞에서 sqlite3_open()을 호출해서 만들어진 DB 연결 객체의 포인터와
+	// SQL 문장을 포함한 문자열을 인자로 받는다.
+	// -> mSqlite, sql
+	// 
+	// 이 API는 실재로 SQL 문장을 평가하는 것이 아니고,
+	// 단지 SQL 문장에 대한 평가를 준비하는 단계이다.
+	//
+	// 새로운 응용 프로그램에서 sqlite3_prepare()의 사용은 추천되지 않는다.
+	// 대신 sqlite3_prepare_v2()를 사용하는 것이 낫다.
+	//////////////////////////////////////////////////////////////////////////
+	//	SQLITE_API int sqlite3_prepare_v2(
+	//			
+	//		sqlite3 *db,              /* Database handle.							= mSqlite		*/
+	//		const char *zSql,         /* UTF-8 encoded SQL statement.				= sql 쿼리문	*/
+	//		int nBytes,               /* Length of zSql in bytes.					= -1			*/
+	//		sqlite3_stmt **ppStmt,    /* OUT: A pointer to the prepared statement	= mResult 주소	*/
+	//		const char **pzTail       /* OUT: End of parsed string					= NULL			*/
+	//
+	//		)
+	//	{
+	//		int rc;
+	//		rc = sqlite3LockAndPrepare(db,zSql, nBytes, 1, 0, ppStmt, pzTail);
+	//
+	//		// 여기에서 sqlite_3_prepare와 v2의 차이는 Bytes 위의 값이 1, 0인데
+	//		// 해당 인자 값은 safeSQLFlag이다. 그래서 v2를 권장하는 듯?
+	//
+	//		assert( rc==SQLITE_OK || ppStmt==0 || *ppStmt==0 );  /* VERIFY: F13021 */
+	//		return rc;
+	//	}
+	//
+	// http://www.cocoadev.co.kr/212 참조
+	//////////////////////////////////////////////////////////////////////////
 	if ( sqlite3_prepare_v2(mSqlite, sql, -1, &mResult, NULL) != SQLITE_OK )
 	{
 		printf("DbHelper Query [%s] Prepare failed: %s\n", sql, sqlite3_errmsg(mSqlite)) ;
@@ -21,11 +61,50 @@ DbHelper::DbHelper(const char* sql)
 DbHelper::~DbHelper()
 {
 	sqlite3_finalize(mResult) ;
+	// 전달 인자로 쿼리문이 prepared statment 객체로 전환 된 포인터를 넣음 = mResult
+
+	//////////////////////////////////////////////////////////////////////////
+	// 이 루틴은 sqlite3_prepare()의 호출로 부터 만들어진 prepared statement를 파괴한다.
+	// 모든 prepared statement는 메모리 누수를 막기 위해서 이 루틴을 호출해서 파괴되어야 한다.
+	//
+	// DatabaseJobcntext.cpp 참조
+	//
+	// DB 작업을 요청하기 위해 작업 종류별로 Context를 생성해서 DB Job Manager의 큐에 넣게 된다.
+	// 그러면 EasyServer.cpp에서 생성한 DB 핸들링 스레드가 무한루프 돌면서 큐에서 꺼내서 작업 처리.
+	//
+	// 작업 처리 = OnExecute() 실행
+	//
+	// 각 Context의 OnExecute()에는 SQL 문장(SQL 쿼리문)을 갖고 함수 내의 지역변수(스택을 이용)로
+	// DbHelper를 생성해서 DB 관련 일을 처리하게 된다.
+	//
+	// 함수 호출이 종료 되면 스택이 비워지게 되므로 DbHelper의 소멸자를 호출하게 되고,
+	// 여기서 sqlite3_finalize()를 호출하게 된다
+	//
+	//
+	// 생성자 - sqlite3_prepare_v2()
+	// 소멸자 - sqlite3_finalize()
+	//
+	// 짝이 맞게 되어 있음
+	//////////////////////////////////////////////////////////////////////////
 }
 
 bool DbHelper::Initialize(const char* connInfoStr)
 {
 	int result = sqlite3_open(connInfoStr, &mSqlite) ;
+	//////////////////////////////////////////////////////////////////////////
+	// http://nickeys.tistory.com/entry/SQLite3 참조
+	// 
+	// sqlite3_open()
+	// 이 루틴은 SQLite DB파일을 열고(connInfoStr 안에 DB파일 주소 들어있음)
+	// DB 연결 객체를 반환 한다. -> mSqlite
+	//
+	// 이 루틴은 응용프로그램이 빈번하게 제일 먼저 호출 하는데, 대부분의 SQLite API들의 선행 조건이기 때문이다.
+	// 많은 SQLite 인터페이스들은 첫 번째 인자로 DB 연결에 대한 포인터를 요구한다.
+	// 이 루틴은 DB 객체의 생성자 역할을 한다고 할 수 있겠다.
+	//
+	// 따라서 EasyServer.cpp 에서 _tmain()에서 초기 기동 시에
+	// DbHelper::Initialize(DB_CONN_STR) 해줌. 실패 할 시에 서버 종료
+	//////////////////////////////////////////////////////////////////////////
 
 	if ( mSqlite == NULL || result != SQLITE_OK )
 	{
@@ -41,6 +120,13 @@ void DbHelper::Finalize()
 {
 	if (mSqlite)
 		sqlite3_close(mSqlite) ;
+	//////////////////////////////////////////////////////////////////////////
+	// 이 루틴은 이전에 sqlite3_open()을 호출함으로써 만들어진 DB연결을 닫는다.
+	// 모든 해당 연결에 관련된 prepared statement들은 해당 연결이 닫히기 전에 종결 되어야 한다.
+	//
+	// 정리 -> EasyServer.cpp 에서 서버 종료 전에 한 번 실행 함.
+	// DB 파일 열려 있으므로 닫는다.
+	//////////////////////////////////////////////////////////////////////////
 }
 
 bool DbHelper::Execute(const char* format, ...)
