@@ -4,7 +4,7 @@
 #include "Exception.h"
 
 sqlite3* DbHelper::mSqlite = NULL ;
-
+// 전역 변수
 
 DbHelper::DbHelper(const char* sql) 
 	: mResult(NULL), mResultColCount(0), mBindColCount(0), mResultCurrentCol(0)
