@@ -129,6 +129,7 @@ void DbHelper::Finalize()
 	//////////////////////////////////////////////////////////////////////////
 }
 
+// 이 함수는 실제로 사용되지 않았음
 bool DbHelper::Execute(const char* format, ...)
 {
 	if (!format)
@@ -137,11 +138,26 @@ bool DbHelper::Execute(const char* format, ...)
 	if (!mSqlite)
 		return false ;
 
-	va_list ap ;
 	char sqlQuery[1024] = {0, } ;
+
+	//////////////////////////////////////////////////////////////////////////
+	//
+	// 가변적인 개수의 매개인자를 갖는 함수를 만들기 위해서는 stdarg.h 헤더를
+	// 포함해야 하는데, sqlite3.h 에서 불러오고 있음
+	//
+	// http://mndd.tistory.com/102 참고
+
+	va_list ap ;
+	// 포인터의 데이터형
+
 	va_start(ap, format) ;
+	// 인수 목록 초기화 매크로
+
 	int res = vsnprintf_s(sqlQuery, 1024, format, ap) ; 
+
 	va_end(ap) ;
+	// 모든 인수를 받아들이고 나서 정리 동작을 수행하는데 사용되는 매크로
+	//////////////////////////////////////////////////////////////////////////
 
 	if (-1 == res)
 		return false ;
@@ -155,15 +171,36 @@ bool DbHelper::Execute(const char* format, ...)
 		printf("SQL [%s] ERROR [%s] \n", sqlQuery, errMsg) ;
 		return false ;
 	}
-
+	//////////////////////////////////////////////////////////////////////////
+	//	SQLITE_API int sqlite3_exec(
+	//		sqlite3*,                                  /* An open database			= mSqlite				*/
+	//		const char *sql,                           /* SQL to be evaluated		= sqlQuery : 쿼리문		*/
+	//		int (*callback)(void*,int,char**,char**),  /* Callback function			= NULL					*/
+	//		void *,                                    /* 1st argument to callback	= NULL					*/
+	//		char **errmsg                              /* Error msg written here	= 에러 메세지 담을 주소	*/
+	//	);
+	//////////////////////////////////////////////////////////////////////////
 
 	return true ;
 }
 
-
+//////////////////////////////////////////////////////////////////////////
+// mBindColCount는 생성자에서 0으로 초기화 되고, Bind 할 때마다 1씩 증가
+//
+// DB 쿼리문 ~~~ values(?,?,?,?) 에서 n번째에 데이터를 넣으라고 컨트롤 하는 것을
+// mBindColCount 로 컨트롤 하기 위해 ++ 함
+//
+// http://notpeelbean.tistory.com/121 참고
+//////////////////////////////////////////////////////////////////////////
 bool DbHelper::BindParamInt(int param)
 {
-
+	//////////////////////////////////////////////////////////////////////////
+	// 1. 쿼리문이 prepared statment 객체로 전환 된 포인터 = mResult
+	// 
+	// 2. mBindColCount 번째 칸에
+	//
+	// 3. param 값을 넣어라
+	//////////////////////////////////////////////////////////////////////////
 	if ( sqlite3_bind_int(mResult, ++mBindColCount, param) != SQLITE_OK )
 	{
 		printf("DbHelper Bind Int failed: %s\n", sqlite3_errmsg(mSqlite)) ;
@@ -186,6 +223,22 @@ bool DbHelper::BindParamDouble(double param)
 
 bool DbHelper::BindParamText(const char* text, int count)
 {
+	//////////////////////////////////////////////////////////////////////////
+	// 네번째 인자는 세번째 데이터의 크기를 정한다
+	// -1(음수)를 넣으면 전체 데이터를 넣는다.
+	//
+	// 다섯번째 인자는 특별한 인자 이다.
+	// 들어가는 값으로 SQLITE_STATIC 과 SQLITE_TRANSIENT가 있다.
+	//
+	// SQLITE_STATIC의 경우 바인딩 되는 변수를 static 변수(free가 될 일이 없는)로 사용한다는 의미
+	// 변수가 중간에 변경되거나 메모리가 해제 되면 문제가 발생할 수 있다.
+	//
+	// SQLITE_TRANSIENT는 바인딩 변수가중간에 변경이 될 수도 있기에 해당 변수값을 복사하여 사용한다.
+	// 중간에 변수가 변경이 되어도 복사한 값으로 사용되기에 문제 없다.
+	// 다만 복사과정이 들어가기에 안전하나 SQLITE_STATIC 보다는 속도가 느리다
+	//
+	// http://neptjuno.tistory.com/41 참조
+	//////////////////////////////////////////////////////////////////////////
 	if ( sqlite3_bind_text(mResult, ++mBindColCount, text, strlen(text), NULL) != SQLITE_OK )
 	{
 		printf("DbHelper Bind Text failed: %s\n", sqlite3_errmsg(mSqlite)) ;
