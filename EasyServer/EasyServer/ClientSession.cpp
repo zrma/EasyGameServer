@@ -181,7 +181,7 @@ void ClientSession::OnRead(size_t len)
 		// 즉 헤더 부분만큼 마저도 읽기 실패
 
 		/// 패킷 완성이 되는가? 
-		if ( mRecvBuffer.GetStoredSize() < header.mSize )
+		if ( mRecvBuffer.GetStoredSize() < static_cast<size_t>(header.mSize) )
 			return ;
 		//////////////////////////////////////////////////////////////////////////
 		// 헤더에 담겨 있는 mSize는 패킷 전체 사이즈

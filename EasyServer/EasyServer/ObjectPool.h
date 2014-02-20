@@ -106,6 +106,8 @@ public:
 		mFreeList = *reinterpret_cast<uint8_t**>(pAvailable) ;
 		// 그리고 mFreeList는 현재 위치에 담겨 있는 주소값(다음 위치겠지)으로 갱신
 
+		CRASH_ASSERT( mCurrentUseCount <= mTotalAllocCount );
+
 		++mCurrentUseCount ;
 		// 카운트 증가하고
 

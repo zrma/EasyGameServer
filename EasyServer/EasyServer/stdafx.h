@@ -42,6 +42,7 @@
 #include <atomic>
 // std::atmoic 을 사용하기 위한 헤더
 // 연산의 원자성(atomic)을 보장하여 멀티 스레드 작업 안정성을 높임
+// http://msdn.microsoft.com/ko-kr/library/hh874894.aspx
 //
 // http://yh120.tistory.com/10
 // http://yesarang.tistory.com/376
