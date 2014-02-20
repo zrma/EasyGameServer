@@ -251,6 +251,16 @@ bool DbHelper::BindParamText(const char* text, int count)
 RESULT_TYPE DbHelper::FetchRow()
 {
 	int result = sqlite3_step(mResult) ;
+	//////////////////////////////////////////////////////////////////////////
+	// http://nickeys.tistory.com/entry/SQLite3 참조
+	//
+	// sqlite3_step() SQL 문장을 prepared statement 객체로 전환한 mResult를 매개인자로 넣어서
+	// 실제 쿼리문에 대해서 평가함
+	//
+	// sqlite3_prepare_v2()	: SQL 명령문 형식에 대한 평가
+	// sqlite3_step()		: 실제 명령문에 인자를 bind 한 이후 적용에 대한 평가
+	//////////////////////////////////////////////////////////////////////////
+	
 	if ( result != SQLITE_ROW && result != SQLITE_DONE )
 	{
 		printf("DbHelper FetchRow failed: %s\n", sqlite3_errmsg(mSqlite)) ;
@@ -260,9 +270,37 @@ RESULT_TYPE DbHelper::FetchRow()
 	/// 결과셋으로 얻어올 데이터가 없다. (그냥 쿼리 실행만 된 것)
 	if ( result == SQLITE_DONE )
 		return RESULT_DONE ;
+	// 결과를 반환하지 않는 문장들(INSERT, UPDATE, DELETE)은 sqlite3_step()을 한번 호출하면 완료
 
+	//////////////////////////////////////////////////////////////////////////
+	// 결과를 반환 할 경우
+	// sqlite3_column() 으로 결과 집합의 한 열 반환
+	//
+	// sqlite3_column_blob()
+	// sqlite3_column_bytes()
+	// sqlite3_column_bytes16()
+	// sqlite3_column_count()
+	// sqlite3_column_double()
+	// sqlite3_column_int()
+	// sqlite3_column_int64()
+	// sqlite3_column_text()
+	// sqlite3_column_text16()
+	// sqlite3_column_type()
+	// sqlite3_column_value()
+	//
+	// http://www.sqlite.org/c3ref/data_count.html
+	// http://www.sqlite.org/c3ref/column_count.html 참고
+	//
+	//
+	// sqlite3_column_count(mResult)
+	//
+	// 쿼리문 prepared statment 객체 (mResult) 의 평가 결과에 맞는 행(row)의 
+	// 열(column)의 개수 리턴
+	//////////////////////////////////////////////////////////////////////////
 	mResultColCount = sqlite3_column_count(mResult) ;
+
 	mResultCurrentCol = 0 ;
+	// 결과를 반환해야 하므로 GetResultParam() 으로 얻어오려면 현재 열을 카운트 해야 됨. 초기화
 
 	return RESULT_ROW ;
 }
@@ -270,8 +308,11 @@ RESULT_TYPE DbHelper::FetchRow()
 int DbHelper::GetResultParamInt()
 {
 	CRASH_ASSERT( mResultCurrentCol < mResultColCount ) ;
+	// 최대 열 수를 초과하면 문제가 있는 거
+	// 최대 열이 10개인데 GetResult를 11번 호출했다던가...
 	
 	return sqlite3_column_int(mResult, mResultCurrentCol++) ;
+	// mResultCurrentCol로 현재 열 수를 카운트하자
 }
 
 double DbHelper::GetResultParamDouble()
