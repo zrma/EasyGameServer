@@ -115,7 +115,7 @@ void ProcessPacket(HWND hWnd)
 					ReleaseDC(hWnd, hdc) ;
 
 					/// 채팅 방송 패킷 보내는 타이머 돌리자.. 
-					SetTimer(hWnd, 337, 100, NULL) ;
+					SetTimer(hWnd, 337, 3000, NULL) ;
 				
 				}
 				else
@@ -292,12 +292,20 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			CreateWindow(L"BUTTON", L"CONNECT", WS_TABSTOP|WS_VISIBLE|WS_CHILD|BS_DEFPUSHBUTTON,
 						10,	10, 175, 23, hWnd, (HMENU)IDC_SEND_BUTTON, GetModuleHandle(NULL), NULL);
 
+			// 소켓 관련 초기화 작업
 			if ( false == Initialize() )
 			{
 				SendMessage(hWnd,WM_DESTROY,NULL,NULL) ;
 				break ;
 			}
 			
+			//////////////////////////////////////////////////////////////////////////
+			// http://blog.naver.com/alsduddl525/140123329159
+			// http://blog.naver.com/merds/150000138666
+			// http://blog.naver.com/popssong/70133058993 참조
+			//
+			// g_Socket 에 오는 것들은 WM_SOCKET 이벤트로 처리하겠음
+			//////////////////////////////////////////////////////////////////////////
 			int	nResult = WSAAsyncSelect(g_Socket, hWnd, WM_SOCKET,(FD_CLOSE|FD_CONNECT));
 			if (nResult)
 			{
@@ -325,10 +333,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			}
 			sendData.mChat[300] = '\0' ;
 			
-
 			if ( g_SendBuffer.Write((const char*)&sendData, sendData.mSize) )
+			// sendData.mSize = sizeof(ChatBroadcastRequest);
 			{
 				PostMessage(hWnd, WM_SOCKET, wParam, FD_WRITE) ;
+				//////////////////////////////////////////////////////////////////////////
+				// http://blog.naver.com/gkqxhq324456/110177315036 참조
+				//
+				// 채팅을 날리려고 버퍼에 데이터도 넣어 두었으니, WM_SOCKET 이벤트를 발생시키자
+				//////////////////////////////////////////////////////////////////////////
 			}
 			
 			
@@ -366,8 +379,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		break;
 
+		//////////////////////////////////////////////////////////////////////////
+		// 소켓 이벤트
+		//////////////////////////////////////////////////////////////////////////
 		case WM_SOCKET:
 		{
+			// lParam 이 에러인지 검출 해보기
 			if (WSAGETSELECTERROR(lParam))
 			{	
 				MessageBox(hWnd,L"WSAGETSELECTERROR",	L"Error", MB_OK|MB_ICONERROR);
@@ -375,9 +392,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				break;
 			}
 
+			// 에러 아니면 이벤트 검출해서 switch
 			switch (WSAGETSELECTEVENT(lParam))
 			{
 			case FD_CONNECT:
+				// 연결이 되었다
 				{
 					/// NAGLE 끈다
 					int opt = 1 ;
@@ -408,7 +427,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 					char inBuf[4096] = {0, } ;
 					
 					int recvLen = recv(g_Socket, inBuf, 4096, 0) ;
+					// send() 함수와 반대
 
+					// 소켓에서 읽어온 데이터를 일단 버퍼에 쓰자
 					if ( !g_RecvBuffer.Write(inBuf, recvLen) )
 					{
 						/// 버퍼 꽉찼다. 
@@ -416,9 +437,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 					}
 					
 					ProcessPacket(hWnd) ;
-					
+					//////////////////////////////////////////////////////////////////////////
+					// 패킷 핸들링!
+					//////////////////////////////////////////////////////////////////////////
 				}
 				break;
+
+				//////////////////////////////////////////////////////////////////////////
+				// 데이터를 받으면 -> 버퍼에 쓴 후에, 핸들링 하는 쪽에서 버퍼 데이터 뽑아서 처리
+				//
+				// 데이터를 보낼때 -> 버퍼에 쓴 후에, FD_WRITE 쪽에서 버퍼 데이터 뽑아서 send()
+				//////////////////////////////////////////////////////////////////////////
 
 			case FD_WRITE:
 				{
@@ -435,6 +464,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 						if ( sent != size )
 							OutputDebugStringA("sent != request\n") ;
 
+						// 보낸 데이터는 지우자
 						g_SendBuffer.Consume(sent) ;
 
 						delete [] data ;
