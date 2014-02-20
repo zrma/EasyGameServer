@@ -85,6 +85,9 @@ int _tmain(int argc, _TCHAR* argv[])
 
 	/// crash 발생시 dump 남기기 위해서
 	SetUnhandledExceptionFilter(ExceptionFilter) ;
+	//////////////////////////////////////////////////////////////////////////
+	// http://blog.naver.com/goli81?Redirect=Log&logNo=10009869628 참조
+	//
 	// ExceptionFilter
 	// Exception.cpp 쪽에서 전역 함수로 선언 되어 있음
 
