@@ -46,7 +46,7 @@ ClientSession* ClientManager::CreateClient(SOCKET sock)
 void ClientManager::BroadcastPacket(ClientSession* from, PacketHeader* pkt)
 {
 	/// FYI : C++ STL iterator 스타일의 루프
-	// 오버라이딩 된 ++ 연산자를 이용해서 차례대로 순회
+	// 연산자 오버로딩 된 ++ 연산자를 이용해서 차례대로 순회
 	for ( ClientList::const_iterator it = mClientList.begin() ; it != mClientList.end() ; ++it )
 	{
 		ClientSession* client = it->second ;
@@ -122,7 +122,7 @@ void ClientManager::CollectGarbageSessions()
 	for ( size_t i = 0 ; i < disconnectedSessions.size() ; ++i )
 	{
 		ClientSession* client = disconnectedSessions[i] ;
-		// vector 자료구조에 대해서 오버라이딩 된 [] 연산자를 통해 배열처럼 사용
+		// vector 자료구조에 대해서 연산자 오버로딩 된 [] 연산자를 통해 배열처럼 사용
 
 		mClientList.erase(client->mSocket) ;
 		// 우선 클라이언트 리스트에서 해당 목록을 지운다

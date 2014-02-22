@@ -8,7 +8,8 @@ class ObjectPool
 {
 public:
 
-	// new 연산자 오버라이딩
+	// C++ 연산자 오버로딩
+	// new 연산자 오버로딩
 	static void* operator new(size_t objSize)
 	{
 		// 초기 생성
