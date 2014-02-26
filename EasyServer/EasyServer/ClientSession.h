@@ -1,12 +1,14 @@
 ﻿#pragma once
 
+#include <map>
+#include <WinSock2.h>
 #include "Config.h"
 #include "..\..\PacketType.h"
 #include "CircularBuffer.h"
-#include <map>
-#include <WinSock2.h>
+#include "ObjectPool.h"
 
 #define BUFSIZE	(1024*10)
+
 class ClientSession ;
 class ClientManager ;
 struct DatabaseJobContext ;
@@ -19,7 +21,7 @@ struct OverlappedIO : public OVERLAPPED
 	ClientSession* mObject ;
 } ;
 
-class ClientSession
+class ClientSession : public ObjectPool<ClientSession>
 {
 public:
 	ClientSession(SOCKET sock)
@@ -40,7 +42,7 @@ public:
 	
 	bool	PostRecv() ;
 
-	bool	Send(PacketHeader* pkt) ;
+	bool	SendRequest(PacketHeader* pkt) ;
 	bool	Broadcast(PacketHeader* pkt) ;
 
 	void	Disconnect() ;
@@ -56,6 +58,7 @@ public:
 	bool	DoingOverlappedOperation() const { return mOverlappedRequested > 0 ; }
 
 private:
+	bool	SendFlush(); ///< Send요청 중인것들 모아서 보냄
 	void	OnTick() ;
 
 	void	LoginDone(int pid, double x, double y, double z, const char* name) ;

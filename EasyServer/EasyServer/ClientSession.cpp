@@ -24,7 +24,7 @@ bool ClientSession::OnConnect(SOCKADDR_IN* addr)
 
 	/// 소켓을 넌블러킹으로 바꾸고
 	u_long arg = 1 ;
-	::ioctlsocket(mSocket, FIONBIO, &arg) ;
+	ioctlsocket(mSocket, FIONBIO, &arg) ;
 	//////////////////////////////////////////////////////////////////////////
 	// ioctlsocket : 소켓 입출력 모드 제어 함수
 	// 
@@ -41,7 +41,7 @@ bool ClientSession::OnConnect(SOCKADDR_IN* addr)
 
 	/// nagle 알고리즘 끄기
 	int opt = 1 ;
-	::setsockopt(mSocket, IPPROTO_TCP, TCP_NODELAY, (const char*)&opt, sizeof(int)) ;
+	setsockopt(mSocket, IPPROTO_TCP, TCP_NODELAY, (const char*)&opt, sizeof(int)) ;
 	//////////////////////////////////////////////////////////////////////////
 	// nagle 알고리즘
 	// 패킷을 일정량이 찰 때 까지 모아서 한 번에 보냄으로써 네트워크 과부하 줄임
@@ -139,7 +139,7 @@ void ClientSession::Disconnect()
 
 	printf("[DEBUG] Client Disconnected: IP=%s, PORT=%d\n", inet_ntoa(mClientAddr.sin_addr), ntohs(mClientAddr.sin_port)) ;
 
-	::shutdown(mSocket, SD_BOTH) ;
+	// shutdown(mSocket, SD_BOTH) ;
 	//////////////////////////////////////////////////////////////////////////
 	// 소켓을 닫기 전 send, receive를 막기 위해 입출력 스트림을 종료시킨다.
 	//
@@ -154,7 +154,20 @@ void ClientSession::Disconnect()
 	// http://blog.naver.com/ksg7514/100163778831 참조
 	//////////////////////////////////////////////////////////////////////////
 
-	::closesocket(mSocket) ;
+
+	/// 즉각 해제
+	LINGER lingerOption;
+	lingerOption.l_onoff = 1;
+	lingerOption.l_linger = 0;
+
+	/// no TCP TIME_WAIT
+	if (SOCKET_ERROR == setsockopt(mSocket, SOL_SOCKET, SO_LINGER, (char*)&lingerOption, sizeof(LINGER)))
+	{
+		printf_s("[DEBUG] setsockopt linger option error: %d\n", GetLastError());
+		return;
+	}
+
+	closesocket(mSocket) ;
 
 	mConnected = false ;
 }
@@ -225,7 +238,7 @@ void ClientSession::OnRead(size_t len)
 		{
 		case PKT_CS_LOGIN:
 			{
-				LoginResult inPacket ;
+				LoginRequest inPacket ;
 				mRecvBuffer.Read((char*)&inPacket, header.mSize) ;
 				//////////////////////////////////////////////////////////////////////////
 				// CircularBuffer에서 Peek는 읽기만 하는 것
@@ -269,65 +282,59 @@ void ClientSession::OnRead(size_t len)
 
 
 //////////////////////////////////////////////////////////////////////////
-// ClientManager에서 BroadcastPacket() 하면 Send() 호출
+// ClientManager에서 BroadcastPacket() 하면 SendRequest() 호출
 //
-// PostRecv() : 수신 / Send() : 송신
+// PostRecv() : 수신 / SendRequest() : 송신
 //////////////////////////////////////////////////////////////////////////
-bool ClientSession::Send(PacketHeader* pkt)
+bool ClientSession::SendRequest(PacketHeader* pkt)
 {
-	if ( !IsConnected() )
-		return false ;
+	if (!IsConnected())
+		return false;
 
-	/// 버퍼 용량 부족인 경우는 끊어버림
-	if ( false == mSendBuffer.Write((char*)pkt, pkt->mSize) )
+	/// Send 요청은 버퍼에 쌓아놨다가 한번에 보낸다.
+	if (false == mSendBuffer.Write((char*)pkt, pkt->mSize))
 	{
-		Disconnect() ;
-		return false ;
+		/// 버퍼 용량 부족인 경우는 끊어버림
+		Disconnect();
+		return false;
 	}
 
-	/// 보낼 데이터가 있는지 검사
-	if ( mSendBuffer.GetContiguiousBytes() == 0 )
-	{
-		/// 방금전에 write 했는데, 데이터가 없다면 뭔가 잘못된 것
-		assert(false) ;
-		Disconnect() ;
-		return false ;
-	}
-		
-	DWORD sendbytes = 0 ;
-	DWORD flags = 0 ;
+	return true;
+}
 
-	WSABUF buf ;
+bool ClientSession::SendFlush()
+{
+	if (!IsConnected())
+		return false;
 
-	//////////////////////////////////////////////////////////////////////////
-	// CircularBuffer.cpp 참조
-	// 버퍼 안에 데이터 쓰기 해서 들어 있는 상태
-	//////////////////////////////////////////////////////////////////////////
-	buf.len = (ULONG)mSendBuffer.GetContiguiousBytes() ;
-	// A버퍼든 B버퍼든(A버퍼부터 체크) 한쪽 버퍼 사이즈를 리턴
-	
-	buf.buf = (char*)mSendBuffer.GetBufferStart() ;
-	// A버퍼든 B버퍼든(A버퍼부터 체크) 한쪽 버퍼의 시작 주소 리턴
-	
-	memset(&mOverlappedSend, 0, sizeof(OverlappedIO)) ;
+	/// 보낼 데이터가 없으면 그냥 리턴
+	if (mSendBuffer.GetContiguiousBytes() == 0)
+		return true;
 
-	mOverlappedSend.mObject = this ;
-	// PostRecv()에서와 동일
+	DWORD sendbytes = 0;
+	DWORD flags = 0;
+
+	WSABUF buf;
+	buf.len = (ULONG)mSendBuffer.GetContiguiousBytes();
+	buf.buf = (char*)mSendBuffer.GetBufferStart();
+
+	memset(&mOverlappedSend, 0, sizeof(OverlappedIO));
+	mOverlappedSend.mObject = this;
 
 	//////////////////////////////////////////////////////////////////////////
 	// 비동기 입출력 시작
 	// 상단의 WSARecv() 참고
 	//////////////////////////////////////////////////////////////////////////
-	if ( SOCKET_ERROR == WSASend(mSocket, &buf, 1, &sendbytes, flags, &mOverlappedSend, SendCompletion) )
+	if (SOCKET_ERROR == WSASend(mSocket, &buf, 1, &sendbytes, flags, &mOverlappedSend, SendCompletion))
 	{
-		if ( WSAGetLastError() != WSA_IO_PENDING )
-			return false ;
+		if (WSAGetLastError() != WSA_IO_PENDING)
+			return false;
 	}
 
-	IncOverlappedRequest() ;
+	IncOverlappedRequest();
 	// Overlapped IO 요청 했음. 카운트 증가
 
-	return true ;
+	return true;
 }
 
 void ClientSession::OnWriteComplete(size_t len)
@@ -346,7 +353,7 @@ void ClientSession::OnWriteComplete(size_t len)
 
 bool ClientSession::Broadcast(PacketHeader* pkt)
 {
-	if ( !Send(pkt) )
+	if ( !SendRequest(pkt) )
 		return false ;
 
 	if ( !IsConnected() )
@@ -424,7 +431,7 @@ void ClientSession::LoginDone(int pid, double x, double y, double z, const char*
 	strcpy_s(mPlayerName, name) ;
 	strcpy_s(outPacket.mName, name) ;
 
-	Send(&outPacket) ;
+	SendRequest(&outPacket) ;
 
 	mLogon = true ;
 }

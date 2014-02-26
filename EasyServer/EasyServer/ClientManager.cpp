@@ -28,6 +28,8 @@ ClientManager* GClientManager = nullptr ;
 //////////////////////////////////////////////////////////////////////////
 ClientSession* ClientManager::CreateClient(SOCKET sock)
 {
+	assert(LThreadType == THREAD_CLIENT);
+
 	ClientSession* client = new ClientSession(sock) ;
 	// 클라이언트 세션을 생성
 
@@ -57,7 +59,7 @@ void ClientManager::BroadcastPacket(ClientSession* from, PacketHeader* pkt)
 			continue ;
 		// 보낸 이에게는 패스
 		
-		client->Send(pkt) ;
+		client->SendRequest(pkt);
 		// ClientSession
 	}
 }
@@ -90,7 +92,10 @@ void ClientManager::OnPeriodWork()
 	}
 
 	/// 처리 완료된 DB 작업들 각각의 Client로 dispatch
-	DispatchDatabaseJobResults() ;		
+	DispatchDatabaseJobResults() ;
+
+	/// 최종적으로 클라이언트들에 쌓인 send 요청 처리
+	FlushClientSend();
 }
 
 void ClientManager::CollectGarbageSessions()
@@ -205,6 +210,18 @@ void ClientManager::DispatchDatabaseJobResults()
 		/// 완료된 DB 작업 컨텍스트는 삭제해주자
 		DatabaseJobContext* toBeDelete = dbResult ;
 		delete toBeDelete ;
+	}
+}
+
+void ClientManager::FlushClientSend()
+{
+	for (auto& it : mClientList)
+	{
+		ClientSession* client = it.second;
+		if (false == client->SendFlush())
+		{
+			client->Disconnect();
+		}
 	}
 }
 

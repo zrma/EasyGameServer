@@ -93,6 +93,7 @@
     <ClInclude Include="EasyServer.h" />
     <ClInclude Include="Exception.h" />
     <ClInclude Include="ObjectPool.h" />
+    <ClInclude Include="ProducerConsumerQueue.h" />
     <ClInclude Include="SPSCQueue.h" />
     <ClInclude Include="sqlite3.h" />
     <ClInclude Include="sqlite3ext.h" />

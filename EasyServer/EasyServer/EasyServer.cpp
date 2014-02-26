@@ -170,7 +170,7 @@ int _tmain(int argc, _TCHAR* argv[])
 		return -1 ;
 
 	int opt = 1 ;
-	::setsockopt(listenSocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(int) ) ;
+	setsockopt(listenSocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(int) ) ;
 	//////////////////////////////////////////////////////////////////////////
 	// 소켓의 세부 사항 조절 - getsockopt / setsockopt
 	// http://vinchi.tistory.com/246 참조
@@ -279,7 +279,7 @@ int _tmain(int argc, _TCHAR* argv[])
 		return -1 ;
 	}
 
-	/// I/O Thread
+	/// Client Logic + I/O Thread
 	DWORD dwThreadId ;
 	HANDLE hThread = (HANDLE)_beginthreadex (NULL, 0, ClientHandlingThread, hEvent, 0, (unsigned int*)&dwThreadId) ;
 	//////////////////////////////////////////////////////////////////////////
@@ -384,15 +384,15 @@ unsigned int WINAPI ClientHandlingThread( LPVOID lpParam )
 	
 	LARGE_INTEGER liDueTime ;
 	liDueTime.QuadPart = -10000000 ; // 1초 후부터 동작
-
 	//////////////////////////////////////////////////////////////////////////
 	// SetWaitabletimer 시간 단위 = 100 나노초
 	// 1000,000,000나노초 = 1초
 	//////////////////////////////////////////////////////////////////////////
-	if ( !SetWaitableTimer(hTimer, &liDueTime, 100, TimerProc, NULL, TRUE) )
+
+	if ( !SetWaitableTimer(hTimer, &liDueTime, 10, TimerProc, NULL, TRUE) )
 		return -1 ;
 	//////////////////////////////////////////////////////////////////////////
-	// 0.1초 주기로 TimerProc 함수 실행 하도록 콜백 설정
+	// 0.01초 주기로 TimerProc 함수 실행 하도록 콜백 설정
 	// 
 	// GClientManager->OnPeriodWork() ;
 	// 클라이언트 매니저가 주기적으로 수행해야 할 일을 0.1초마다 수행한다.
@@ -447,14 +447,7 @@ unsigned int WINAPI DatabaseHandlingThread( LPVOID lpParam )
 {
 	LThreadType = THREAD_DATABASE ;
 
-	while ( true )
-	{
-		/// 기본적으로 polling 하면서 Job이 있다면 처리 하는 방식
-		GDatabaseJobManager->ExecuteDatabaseJobs() ;
-
-		Sleep(1) ;
-	}
-	// DB 쪽은 빠르게 무한루프 돌면서 처리
+	GDatabaseJobManager->ExecuteDatabaseJobs() ;
 
 	return 0 ;
 }
@@ -464,5 +457,5 @@ void CALLBACK TimerProc(LPVOID lpArg, DWORD dwTimerLowValue, DWORD dwTimerHighVa
 	assert( LThreadType == THREAD_CLIENT ) ;
 
 	GClientManager->OnPeriodWork() ;
-	// 클라이언트 쪽은 0.1초 단위로 콜백 함수 호출하면서 주기적으로 해야 할 일 처리
+	// 클라이언트 쪽은 0.01초 단위로 콜백 함수 호출하면서 주기적으로 해야 할 일 처리
 }
