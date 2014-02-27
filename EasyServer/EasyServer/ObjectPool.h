@@ -12,9 +12,11 @@ public:
 	// new 연산자 오버로딩
 	static void* operator new(size_t objSize)
 	{
-		// 초기 생성
+		// 초기 생성 or 꽉 찼을 때
 		if (!mFreeList)
 		{
+			printf_s("배열 생성!!!! %dByte * %d칸 \n", sizeof(TOBJECT), ALLOC_COUNT);
+
 			mFreeList = new uint8_t[sizeof(TOBJECT)*ALLOC_COUNT] ;
 			// TOBJECT의 10칸 배열을 미리 동적 생성 해 둠
 
@@ -98,6 +100,9 @@ public:
 			}
 			
 			*ppCurr = 0 ; ///< 마지막은 0으로 표시
+			// 마지막에 다다르게 되면 mFreeList의 값이 0이 되어서 false, !mFreeList = true
+			// 위의 if문에 검출 되어서 배열을 추가 할당 하게 된다.
+
 			mTotalAllocCount += ALLOC_COUNT ;
 		}
 
@@ -106,6 +111,8 @@ public:
 
 		mFreeList = *reinterpret_cast<uint8_t**>(pAvailable) ;
 		// 그리고 mFreeList는 현재 위치에 담겨 있는 주소값(다음 위치겠지)으로 갱신
+
+		printf_s("할당 %d / %d \n", mCurrentUseCount, mTotalAllocCount);
 
 		CRASH_ASSERT( mCurrentUseCount <= mTotalAllocCount );
 

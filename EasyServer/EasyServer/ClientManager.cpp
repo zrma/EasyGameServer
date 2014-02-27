@@ -28,6 +28,7 @@ ClientManager* GClientManager = nullptr ;
 //////////////////////////////////////////////////////////////////////////
 ClientSession* ClientManager::CreateClient(SOCKET sock)
 {
+	// 이 함수는 클라이언트 핸들링 스레드에서 불려야 한다.
 	assert(LThreadType == THREAD_CLIENT);
 
 	ClientSession* client = new ClientSession(sock) ;
@@ -60,7 +61,7 @@ void ClientManager::BroadcastPacket(ClientSession* from, PacketHeader* pkt)
 		// 보낸 이에게는 패스
 		
 		client->SendRequest(pkt);
-		// ClientSession
+		// ClientSession.cpp 참고
 	}
 }
 
@@ -95,6 +96,7 @@ void ClientManager::OnPeriodWork()
 	DispatchDatabaseJobResults() ;
 
 	/// 최종적으로 클라이언트들에 쌓인 send 요청 처리
+	// 클라이언트 세션에 할당 된 send 요청 처리
 	FlushClientSend();
 }
 

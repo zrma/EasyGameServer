@@ -91,6 +91,10 @@ int _tmain(int argc, _TCHAR* argv[])
 	// ExceptionFilter
 	// Exception.cpp 쪽에서 전역 함수로 선언 되어 있음
 
+	AllocConsole();
+	FILE* pFile; 
+	freopen_s(&pFile, "CONOUT$", "wb", stdout);
+
 	LThreadType = THREAD_MAIN ;
 
 	//////////////////////////////////////////////////////////////////////////

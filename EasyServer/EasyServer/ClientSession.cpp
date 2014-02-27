@@ -15,11 +15,12 @@ bool ClientSession::OnConnect(SOCKADDR_IN* addr)
 	// 현재 이 부분은 OnConeect()가 호출 된 상황에서 살펴보면
 	//
 	// EasyServer.cpp의 ClientHandlingThread()에서 호출 한,
-	// 클라이언트 매니저의 CreateClient()에서 new 해서 동적 할당 한,
+	// 클라이언트 매니저의 CreateClient() 함수에서 new 해서 동적 할당 한,
 	// 접속자(클라이언트) 하나 당 할당 된 객체 하나이다
 	// 
-	// 해당 객체에, 위의 인자로부터(EasyServer.cpp의 클라이언트 핸들링 스레드에서) 받은
-	// 주소 값을 
+	// 해당 객체에, 위의 인자로부터(EasyServer.cpp의 클라이언트 핸들링 스레드에서)
+	// 주소 값을 받아와서 멤버 변수로 저장한다.
+	//////////////////////////////////////////////////////////////////////////
 	memcpy(&mClientAddr, addr, sizeof(SOCKADDR_IN)) ;
 
 	/// 소켓을 넌블러킹으로 바꾸고
@@ -139,6 +140,8 @@ void ClientSession::Disconnect()
 
 	printf("[DEBUG] Client Disconnected: IP=%s, PORT=%d\n", inet_ntoa(mClientAddr.sin_addr), ntohs(mClientAddr.sin_port)) ;
 
+	//////////////////////////////////////////////////////////////////////////
+	// 변경 전
 	// shutdown(mSocket, SD_BOTH) ;
 	//////////////////////////////////////////////////////////////////////////
 	// 소켓을 닫기 전 send, receive를 막기 위해 입출력 스트림을 종료시킨다.
@@ -157,10 +160,33 @@ void ClientSession::Disconnect()
 
 	/// 즉각 해제
 	LINGER lingerOption;
+	//////////////////////////////////////////////////////////////////////////
+	//	struct  linger {
+	//		u_short l_onoff;                // option on/off 
+	//		u_short l_linger;               // linger time
+	//	};
+	//////////////////////////////////////////////////////////////////////////
+
 	lingerOption.l_onoff = 1;
 	lingerOption.l_linger = 0;
 
 	/// no TCP TIME_WAIT
+	//////////////////////////////////////////////////////////////////////////
+	// http://blog.naver.com/gusl214/100187003389 참조
+	// http://vinchi.tistory.com/246 참조
+	//
+	// 소켓을 닫을 때 전송 되지 않은 데이터의 처리 규칙
+	//
+	// 1) l_onoff = 0
+	//		linger 옵션을 사용하지 않고 일반적인 종료를 수행
+	// 2) l_onoff = 1, l_linger > 0
+	//		l_linger에 설정한 시간 내에 FIN - ACK 패킷을 받지 못하면 커널에서 RST를 세팅하여 보내어 바로 종료시킴
+	// 3) l_onoff =1, l_linger = 0
+	//		바로 자신의 버퍼의 데이터를 버리고 상대방에게 RST를 세팅하여 보냄.
+	//		RST를 보내면 TIME_WAIT 상태가 되지 않고 CLOSED 상태가 되어버림
+	//
+	// http://kimbeast.blog.me/60046048418 참조
+	//////////////////////////////////////////////////////////////////////////
 	if (SOCKET_ERROR == setsockopt(mSocket, SOL_SOCKET, SO_LINGER, (char*)&lingerOption, sizeof(LINGER)))
 	{
 		printf_s("[DEBUG] setsockopt linger option error: %d\n", GetLastError());
