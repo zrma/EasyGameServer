@@ -387,10 +387,11 @@ unsigned int WINAPI ClientHandlingThread( LPVOID lpParam )
 		return -1 ;
 	
 	LARGE_INTEGER liDueTime ;
+	
 	liDueTime.QuadPart = -10000000 ; // 1초 후부터 동작
 	//////////////////////////////////////////////////////////////////////////
 	// SetWaitabletimer 시간 단위 = 100 나노초
-	// 1000,000,000나노초 = 1초
+	// 1,000,000,000나노초 = 1초
 	//////////////////////////////////////////////////////////////////////////
 
 	if ( !SetWaitableTimer(hTimer, &liDueTime, 10, TimerProc, NULL, TRUE) )

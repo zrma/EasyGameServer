@@ -393,7 +393,7 @@ bool ClientSession::Broadcast(PacketHeader* pkt)
 void ClientSession::OnTick()
 {
 	/// 클라별로 주기적으로 해야 될 일은 여기에
-	
+
 	/// 특정 주기로 DB에 위치 저장
 	if ( ++mDbUpdateCount == PLAYER_DB_UPDATE_CYCLE )
 	// 현재 1초 마다 OnTick() 호출

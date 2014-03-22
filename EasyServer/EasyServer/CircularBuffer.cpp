@@ -227,7 +227,7 @@ bool CircularBuffer::Write(const char* data, size_t bytes)
 	// A버퍼가 충분히 뒤쪽으로 밀려난 상태이므로
 	// 앞쪽에 B버퍼를 새로 만들어서 거기에 데이터를 쓰기
 	//////////////////////////////////////////////////////////////////////////
-	if ( GetAFreeSpace() < GetSpaceBeforeA() )
+	if ( GetSpaceBeforeA() > GetAFreeSpace() )
 	{
 		AllocateB() ;
 

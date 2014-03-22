@@ -74,14 +74,14 @@ public:
 			//
 			// 1. A버퍼를 계속 사용하면서 시작 위치가 뒤로 밀려나면
 			// 2. 앞쪽에 B버퍼를 만들어서 사용함
-			// 3. 어찌 되었든 버퍼를 비우고 나면 B를 제거하든 A가 B로 변하든 앞부분이 다시 A가 됨
+			// 3. 어찌 되었든 버퍼를 비우고 나면 B 제거로 초기화가 되든, B가 A로 변하든 앞부분이 다시 A가 됨
 			//
 			// 위 과정을 반복하는 자료 구조
 			//////////////////////////////////////////////////////////////////////////
-			if ( GetAFreeSpace() < GetSpaceBeforeA() )
+			if ( GetSpaceBeforeA() > GetAFreeSpace() )
 			{
-				AllocateB() ;
-				return GetBFreeSpace() ;
+				AllocateB();
+				return GetBFreeSpace();
 				// 앞쪽 공간이 크면 앞에 B버퍼 설정하고, B버퍼를 쓸 수 있는 크기를 리턴하자
 			}
 			else
