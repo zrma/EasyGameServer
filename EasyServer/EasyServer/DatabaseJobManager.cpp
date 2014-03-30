@@ -41,7 +41,7 @@ void DatabaseJobManager::ExecuteDatabaseJobs()
 //
 // EasyServer.cpp 에 있는 클라이언트 핸들링 스레드에서 
 //
-// 1. SetWaitableTimer를 이용해서 0.1초마다 TimerProc 콜백
+// 1. SetWaitableTimer를 이용해서 0.01초마다 TimerProc 콜백
 // 여기에서 GClientManager->OnPeriodWork() 실행
 // 
 // OnPeriodWork()에서 살펴보면
