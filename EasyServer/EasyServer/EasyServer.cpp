@@ -313,6 +313,17 @@ int _tmain(int argc, _TCHAR* argv[])
 	/// accept loop
 	while ( true )
 	{
+		//////////////////////////////////////////////////////////////////////////
+		// 스레드 동기화 문제 때문에 프로듀서-컨슈머 큐를 이용한 락을 활용하여 문제를 해결해야 함.
+		// Main Thread에 accept()가 발생하고 SetEvent()를 실행하면 
+		// ClientHandling Thread에서 전역 변수 g_AcceptedSocket의 데이터를 꺼내가게 되는데, 그 이전에
+		// Main Thread에서 accept()가 다시 한 번 발생해서 g_AcceptedSocket의 데이터가 바뀌게 되면
+		// 이전에 담겨 있는 소켓은 유령 세션이 된다.
+		//
+		// 그리고 SetEvent()는 다시 한 번 발생 되기 때문에,
+		// ClientHandling Thread에서 같은 소켓에 대해서 두 번 생성을 시도하게 되고 두 번째에는 에러!
+		//////////////////////////////////////////////////////////////////////////
+
 		g_AcceptedSocket = accept(listenSocket, NULL, NULL) ;
 		// accept() = 연결 요청 대기 큐에서 대기 중인 클라이언트의 연결 요청을 수락하는 기능의 함수
 
