@@ -41,10 +41,7 @@
 // 되어 있음
 //////////////////////////////////////////////////////////////////////////
 
-//////////////////////////////////////////////////////////////////////////
-SOCKET g_AcceptedSocket = NULL ;
-// 전역 변수로 매 타이밍마다 접속 허가 처리를 할 소켓 관리
-//////////////////////////////////////////////////////////////////////////
+typedef ProducerConsumerQueue<SOCKET, 100> PendingAcceptList;
 
 //////////////////////////////////////////////////////////////////////////
 __declspec(thread) int LThreadType = -1 ;
@@ -259,33 +256,12 @@ int _tmain(int argc, _TCHAR* argv[])
 	if (ret == SOCKET_ERROR)
 		return -1 ;
 
-	/// auto-reset event
-	HANDLE hEvent = CreateEvent(NULL, FALSE, FALSE, NULL) ;
-	//////////////////////////////////////////////////////////////////////////
-	//	HANDLE CreateEvent( 
-	//		LPSECURITY_ATTRIBUTES lpEventAttributes,	// 일반적으로 NULL, 보안 관련
-	//		BOOL bManualReset,							// 수동(TRUE), 자동(FALSE)
-	//		BOOL bInitialState,							// 생성시 이벤트가 적용된 상태인가
-	//		LPTSTR lpName);								// 이벤트 네임
-	//
-	// 이벤트 - 스레드를 사용하면서 스레드를 죽이거나(Kill) 프로세스간 통신, 무언가 알릴 때 등 다양하게 사용
-	// 
-	// 두번째 파라미터를 수동으로 둘 경우 SetEvent()로 이벤트를 발생시킬 경우,
-	// 수동으면 이벤트 발생후 ResetEvent()를 반드시 해주어야 이벤트가 다시 발생되고
-	// 자동일 경우는 ResetEvent()를 안 해도 됨. 용도에 맞게 사용
-	//
-	// 위의 경우는 자동 리셋으로 설정되어 있음
-	//////////////////////////////////////////////////////////////////////////
-
-	if (hEvent == NULL)
-	{
-		WSACleanup() ;
-		return -1 ;
-	}
-
+	// accepting list
+	PendingAcceptList pendingAcceptList;
+	
 	/// Client Logic + I/O Thread
 	DWORD dwThreadId ;
-	HANDLE hThread = (HANDLE)_beginthreadex (NULL, 0, ClientHandlingThread, hEvent, 0, (unsigned int*)&dwThreadId) ;
+	HANDLE hThread = (HANDLE)_beginthreadex (NULL, 0, ClientHandlingThread, (LPVOID)&pendingAcceptList, 0, (unsigned int*)&dwThreadId) ;
 	//////////////////////////////////////////////////////////////////////////
 	// 클라이언트 핸들링 스레드 쪽에 이벤트를 전달하기 위해서 hEvent를 전달 인자로 대입
 	//
@@ -294,7 +270,6 @@ int _tmain(int argc, _TCHAR* argv[])
 
     if (hThread == NULL)
 	{
-		CloseHandle( hEvent ) ;
 		WSACleanup() ;
 		return -1 ;
 	}
@@ -305,7 +280,6 @@ int _tmain(int argc, _TCHAR* argv[])
 	if (hDbThread == NULL)
 	{
 		CloseHandle( hThread ) ;
-		CloseHandle( hEvent ) ;
 		WSACleanup() ;
 		return -1 ;
 	}
@@ -324,28 +298,17 @@ int _tmain(int argc, _TCHAR* argv[])
 		// ClientHandling Thread에서 같은 소켓에 대해서 두 번 생성을 시도하게 되고 두 번째에는 에러!
 		//////////////////////////////////////////////////////////////////////////
 
-		g_AcceptedSocket = accept(listenSocket, NULL, NULL) ;
+		SOCKET acceptedSocket = accept(listenSocket, NULL, NULL) ;
 		// accept() = 연결 요청 대기 큐에서 대기 중인 클라이언트의 연결 요청을 수락하는 기능의 함수
 
-		if ( g_AcceptedSocket == INVALID_SOCKET )
+		if ( acceptedSocket == INVALID_SOCKET )
 		{
 			printf("accept: invalid socket\n") ;
 			continue ;
 		}
-
-		/// accept event fire!
-		//////////////////////////////////////////////////////////////////////////
-		// 위에서 생성한 - 스레드 내부에 신호를 전달시키기 위한 hEvent 발생!
-		//////////////////////////////////////////////////////////////////////////
-		if ( !SetEvent(hEvent) )
-		{
-			printf("SetEvent error: %d\n", GetLastError()) ;
-			break ;
-		}
 	}
 
 	CloseHandle( hThread ) ;
-	CloseHandle( hEvent ) ;
 	CloseHandle( hDbThread ) ;
 
 	//////////////////////////////////////////////////////////////////////////
@@ -372,9 +335,8 @@ unsigned int WINAPI ClientHandlingThread( LPVOID lpParam )
 	// TLS(Thread Local Storage)
 	// 이 스레드는 클라이언트 핸들링 스레드
 
-	HANDLE hEvent = (HANDLE)lpParam ;
-	// 메인스레드에서 생성한 이벤트를 매개인자로 받아옴
-
+	PendingAcceptList* pAcceptList = (PendingAcceptList*)lpParam;
+	
 	/// Timer
 	HANDLE hTimer = CreateWaitableTimer(NULL, FALSE, NULL) ;
 	//////////////////////////////////////////////////////////////////////////
@@ -405,7 +367,7 @@ unsigned int WINAPI ClientHandlingThread( LPVOID lpParam )
 	// 1,000,000,000나노초 = 1초
 	//////////////////////////////////////////////////////////////////////////
 
-	if ( !SetWaitableTimer(hTimer, &liDueTime, 10, TimerProc, NULL, TRUE) )
+	if ( !SetWaitableTimer(hTimer, &liDueTime, 100, TimerProc, NULL, TRUE) )
 		return -1 ;
 	//////////////////////////////////////////////////////////////////////////
 	// 0.01초 주기로 TimerProc 함수 실행 하도록 콜백 설정
@@ -415,16 +377,14 @@ unsigned int WINAPI ClientHandlingThread( LPVOID lpParam )
 
 	while ( true )
 	{
-		/// accept or IO/Timer completion 대기
-		DWORD result = WaitForSingleObjectEx(hEvent, INFINITE, TRUE) ;
-		// 이벤트 신호 들어올 때가지 무한 대기
+		SOCKET acceptSock = NULL;
 
-		/// client connected
-		if ( result == WAIT_OBJECT_0 )
+		/// 새로 접속한 클라이언트 처리
+		if ( pAcceptList->Consume(acceptSock, false) )
 		{
 	
 			/// 소켓 정보 구조체 할당과 초기화
-			ClientSession* client = GClientManager->CreateClient(g_AcceptedSocket) ;
+			ClientSession* client = GClientManager->CreateClient(acceptSock) ;
 			//////////////////////////////////////////////////////////////////////////
 			// 클라이언트 매니저에 매개인자로 접속 대기 큐에서 accept 된 소켓 정보를 넘겨 CreateClient
 			// 클라 생성
@@ -433,26 +393,24 @@ unsigned int WINAPI ClientHandlingThread( LPVOID lpParam )
 			
 			SOCKADDR_IN clientaddr ;
 			int addrlen = sizeof(clientaddr) ;
-			getpeername(g_AcceptedSocket, (SOCKADDR*)&clientaddr, &addrlen) ;
+			getpeername( acceptSock, (SOCKADDR*)&clientaddr, &addrlen );
 			// 소켓으로부터 클라이언트 네임(sockaddr 주소값)을 얻어옴
 
 			// 클라 접속 처리
-			if ( false == client->OnConnect(&clientaddr) )
+			if ( false == client->OnConnect( &clientaddr ) )
 			{
-				client->Disconnect() ;
+				client->Disconnect();
 			}
 			// ClientSession.cpp 참조
 		
 			continue ; // 다시 대기로
 		}
 
-		// APC에 있던 completion이 아니라면 에러다
-		if ( result != WAIT_IO_COMPLETION )
-			return -1 ;
-		//////////////////////////////////////////////////////////////////////////
-		// 이벤트 신호를 받아서 WaitForSingleObjectEx 하단으로 진입했는데
-		// result 반환 값이 WAIT_IO_COMPLETION 가 아니라면 에러였음
-		//////////////////////////////////////////////////////////////////////////
+		// 최종적으로 클라이언트들에 쌓인 send 요청 처리
+		GClientManager->FlushClientSend();
+		
+		// APC Queue에 쌓인 작업들 처리
+		SleepEx( INFINITE, TRUE );
 	}
 
 	CloseHandle( hTimer ) ;

@@ -5,6 +5,44 @@
 #include "DatabaseJobContext.h"
 #include "DatabaseJobManager.h"
 
+
+//@{ Handler Helper
+
+typedef void( *HandlerFunc )(ClientSession* session, PacketHeader& pktBase);
+
+static HandlerFunc HandlerTable[PKT_MAX];
+
+static void DefaultHandler( ClientSession* session, PacketHeader& pktBase )
+{
+	assert( false );
+	session->Disconnect();
+}
+
+struct InitializeHandlers
+{
+	InitializeHandlers()
+	{
+		for ( int i = 0; i < PKT_MAX; ++i )
+			HandlerTable[i] = DefaultHandler;
+	}
+} _init_handlers_;
+	
+struct RegisterHandler
+{
+	RegisterHandler( int pktType, HandlerFunc handler )
+	{
+		HandlerTable[pktType] = handler;
+	}
+};
+	
+#define REGISTER_HANDLER( PKT_TYPE )	\
+	static void Handler_##PKT_TYPE(ClientSession* session, PacketHeader& pktBase); \
+	static RegisterHandler _register_##PKT_TYPE(PKT_TYPE, Handler_##PKT_TYPE); \
+	static void Handler_##PKT_TYPE(ClientSession* session, PacketHeader& pktBase)
+		
+//@}
+
+
 //////////////////////////////////////////////////////////////////////////
 // EasyServer.cpp 에서 클라이언트 매니저에서 CreateClient 한 후에
 // 소켓 객체로부터 getpeername()를 이용해 주소 값을 뽑아 와서 OnConnect() 호출
@@ -259,50 +297,14 @@ void ClientSession::OnRead(size_t len)
 		// (Callback에서 짬짬히 계속 OnRead하고, OnRead에서는 패킷이 완성 될 때마다 처리)
 		//////////////////////////////////////////////////////////////////////////
 
-		/// 패킷 핸들링
-		switch ( header.mType )
+		if ( header.mType >= PKT_MAX || header.mType <= PKT_NONE )
 		{
-		case PKT_CS_LOGIN:
-			{
-				LoginRequest inPacket ;
-				mRecvBuffer.Read((char*)&inPacket, header.mSize) ;
-				//////////////////////////////////////////////////////////////////////////
-				// CircularBuffer에서 Peek는 읽기만 하는 것
-				// Read는 읽고 나서, 읽은 만큼 제거
-				//////////////////////////////////////////////////////////////////////////
-
-				/// 로그인은 DB 작업을 거쳐야 하기 때문에 DB 작업 요청한다.
-				LoadPlayerDataContext* newDbJob = new LoadPlayerDataContext(mSocket, inPacket.mPlayerId) ;
-				GDatabaseJobManager->PushDatabaseJobRequest(newDbJob) ;
-			
-			}
-			break ;
-
-		case PKT_CS_CHAT:
-			{
-				ChatBroadcastRequest inPacket ;
-				mRecvBuffer.Read((char*)&inPacket, header.mSize) ;
-				
-				ChatBroadcastResult outPacket ;
-				outPacket.mPlayerId = inPacket.mPlayerId ;
-				strcpy_s(outPacket.mName, mPlayerName) ;
-				strcpy_s(outPacket.mChat, inPacket.mChat) ;
-		
-				/// 채팅은 바로 방송 하면 끝
-				if ( !Broadcast(&outPacket) )
-					return ;
- 
-			}
-			break ;
-
-		default:
-			{
-				/// 여기 들어오면 이상한 패킷 보낸거다.
-				Disconnect() ;
-				return ;
-			}
-			break ;
+			Disconnect();
+			return;
 		}
+
+		// 패킷 디스패치
+		HandlerTable[header.mType]( this, header );
 	}
 }
 
@@ -360,6 +362,8 @@ bool ClientSession::SendFlush()
 	IncOverlappedRequest();
 	// Overlapped IO 요청 했음. 카운트 증가
 
+	// assert(buf.len == sendbytes);
+
 	return true;
 }
 
@@ -367,14 +371,6 @@ void ClientSession::OnWriteComplete(size_t len)
 {
 	/// 보내기 완료한 데이터는 버퍼에서 제거
 	mSendBuffer.Remove(len) ;
-
-	/// 얼래? 덜 보낸 경우도 있나? (커널의 send queue가 꽉찼거나, Send Completion이전에 또 send 한 경우?)
-	if ( mSendBuffer.GetContiguiousBytes() > 0 )
-	{
-		assert(false) ;
-		// 이러면 디버깅 모드에서는 무조건 이 안에 들어왔을 때 assert 되고 중지!
-	}
-
 }
 
 bool ClientSession::Broadcast(PacketHeader* pkt)
@@ -453,7 +449,6 @@ void ClientSession::LoginDone(int pid, double x, double y, double z, const char*
 	outPacket.mPlayerId = mPlayerId = pid ;
 	outPacket.mPosX = mPosX = x ;
 	outPacket.mPosY = mPosY = y ;
-	outPacket.mPosZ = mPosZ = z ;
 	strcpy_s(mPlayerName, name) ;
 	strcpy_s(outPacket.mName, name) ;
 
@@ -528,3 +523,41 @@ void CALLBACK SendCompletion(DWORD dwError, DWORD cbTransferred, LPWSAOVERLAPPED
 
 }
 
+//////////////////////////////////////////////////////////////////
+
+REGISTER_HANDLER( PKT_CS_LOGIN )
+{
+	LoginRequest inPacket = static_cast<LoginRequest&>(pktBase);
+	session->HandleLoginRequest( inPacket );
+}
+
+void ClientSession::HandleLoginRequest( LoginRequest& inPacket )
+{
+	mRecvBuffer.Read( (char*)&inPacket, inPacket.mSize );
+
+	/// 로그인은 DB 작업을 거쳐야 하기 때문에 DB 작업 요청한다.
+	LoadPlayerDataContext* newDbJob = new LoadPlayerDataContext( mSocket, inPacket.mPlayerId );
+	GDatabaseJobManager->PushDatabaseJobRequest( newDbJob );
+}
+
+REGISTER_HANDLER( PKT_CS_CHAT )
+{
+	ChatBroadcastRequest inPacket = static_cast<ChatBroadcastRequest&>(pktBase);
+	session->HandleChatRequest( inPacket );
+}
+
+void ClientSession::HandleChatRequest( ChatBroadcastRequest& inPacket )
+{
+	mRecvBuffer.Read( (char*)&inPacket, inPacket.mSize );
+
+	ChatBroadcastResult outPacket;
+	outPacket.mPlayerId = inPacket.mPlayerId;
+	strcpy_s( outPacket.mName, mPlayerName );
+	strcpy_s( outPacket.mChat, inPacket.mChat );
+
+	/// 채팅은 바로 방송 하면 끝
+	if ( !Broadcast( &outPacket ) )
+	{
+		Disconnect();
+	}
+}
